@@ -23,7 +23,7 @@ Offline map application for avalanche control operations in Utah's Little Cotton
 
 MAP-OPS is an offline-capable map application designed for avalanche control teams operating in mountain terrain. It displays:
 
-- **Custom satellite/topo basemaps** loaded from MBTiles files
+- **Custom satellite/topo basemaps** loaded from PMTiles files (no SQL/tile server needed)
 - **Operational layers** (GeoJSON):
   - Avalanche Paths (polygons) - Red
   - Closure Gates (points) - Orange
@@ -36,6 +36,19 @@ The app works offline by bundling tile data and GeoJSON layers locally.
 ---
 
 ## Architecture
+
+### Why PMTiles (No SQL Required)
+
+| Component | Format | SQL Needed? |
+|-----------|--------|-------------|
+| Basemap tiles | PMTiles | **No** - direct file read via protocol handler |
+| Overlay layers | GeoJSON | **No** - JSON files |
+| Manifest/config | JSON | **No** - JSON files |
+| User data (future) | Optional SQLite | Only if you add bookmarks, notes, etc. |
+
+**PMTiles vs MBTiles:**
+- MBTiles = SQLite database → requires SQL driver or tile server
+- PMTiles = single optimized file → direct browser/app access, no server needed
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -53,27 +66,19 @@ The app works offline by bundling tile data and GeoJSON layers locally.
 │  │  (Main App)  │  (MapLibre)  │  (Loading)   │  (GeoJSON) │    │
 │  │              │              │              │            │    │
 │  │ - Init       │ - Map setup  │ - File parse │ - UTM conv │    │
-│  │ - UI events  │ - Layers     │ - IndexedDB  │ - Merge    │    │
-│  │ - Layer mgmt │ - GPS track  │ - GeoJSON    │ - Bounds   │    │
+│  │ - UI events  │ - PMTiles    │ - GeoJSON    │ - Merge    │    │
+│  │ - Layer mgmt │ - GPS track  │              │ - Bounds   │    │
 │  └──────────────┴──────────────┴──────────────┴────────────┘    │
 │                              │                                   │
 │  ┌───────────────────────────▼───────────────────────────────┐  │
-│  │                    Data Sources                            │  │
+│  │                    Data Sources (No SQL)                   │  │
 │  ├─────────────────────┬─────────────────────────────────────┤  │
 │  │  basemap/           │  layers/                             │  │
-│  │  └─ *.mbtiles       │  ├─ layers.json (manifest)           │  │
+│  │  └─ *.pmtiles       │  ├─ layers.json (manifest)           │  │
 │  │     (Satellite/Topo)│  ├─ Avy_Paths.geojson                │  │
-│  │                     │  ├─ Closure_Gates.geojson            │  │
+│  │     No tile server! │  ├─ Closure_Gates.geojson            │  │
 │  │                     │  └─ Pad_Locations.geojson            │  │
 │  └─────────────────────┴─────────────────────────────────────┘  │
-│                              │                                   │
-│  ┌───────────────────────────▼───────────────────────────────┐  │
-│  │                    Tile Server                             │  │
-│  │  tile-server.py (Python, port 3000)                        │  │
-│  │  - Reads MBTiles SQLite database                           │  │
-│  │  - Serves tiles at /tiles/{z}/{x}/{y}                      │  │
-│  │  - CORS enabled for local development                      │  │
-│  └───────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -82,10 +87,9 @@ The app works offline by bundling tile data and GeoJSON layers locally.
 | Module | File | Purpose |
 |--------|------|---------|
 | **App** | `js/app.js` | Main coordinator. Handles UI, layer management, auto-loads layers from manifest |
-| **Map** | `js/map.js` | MapLibre GL JS wrapper. Map init, layer rendering, GPS tracking, tile server detection |
-| **Data** | `js/data.js` | File parsing (GeoJSON, KML, GPX, CSV), IndexedDB storage, coordinate detection |
+| **Map** | `js/map.js` | MapLibre GL JS + PMTiles protocol. Map init, layer rendering, GPS tracking |
+| **Data** | `js/data.js` | File parsing (GeoJSON, KML, GPX, CSV), coordinate detection |
 | **Layer Utils** | `js/layer-utils.js` | UTM to WGS84 conversion, GeoJSON merging, bounds calculation |
-| **Tile Server** | `tile-server.py` | Python HTTP server that reads MBTiles and serves raster tiles |
 
 ### Data Flow
 
@@ -98,10 +102,11 @@ The app works offline by bundling tile data and GeoJSON layers locally.
                    └─> Convert UTM to WGS84 if needed
                        └─> Add to MapLibre as source/layer
 
-2. Basemap Loading
-   └─> Check if tile server running (localhost:3000/health)
-       └─> YES: Switch to LOCAL_MBTILES_STYLE (satellite)
-       └─> NO: Use DARK_MAP_STYLE (Carto dark tiles)
+2. Basemap Loading (PMTiles - No Server Required)
+   └─> PMTiles protocol handler registered with MapLibre
+       └─> Load basemap/*.pmtiles directly
+           └─> Tiles fetched on-demand via HTTP range requests
+               └─> No SQLite, no tile server needed
 ```
 
 ---
@@ -113,8 +118,7 @@ map_app/
 ├── index.html              # Main app HTML
 ├── manifest.json           # PWA manifest
 ├── service-worker.js       # Offline caching
-├── tile-server.py          # Python MBTiles server
-├── .gitignore              # Excludes .mbtiles, node_modules
+├── .gitignore              # Excludes .pmtiles, node_modules
 ├── README.md               # This file
 │
 ├── css/
@@ -133,7 +137,7 @@ map_app/
 │   └── Pad_Locations.geojson
 │
 ├── basemap/
-│   └── *.mbtiles           # Satellite/topo tiles (NOT in git)
+│   └── *.pmtiles           # Satellite/topo tiles (NOT in git, no SQL needed)
 │
 ├── images/
 │   ├── logos/              # Agency partner logos
@@ -207,33 +211,47 @@ const layerStyles = {
 
 ## Running Locally
 
-### Terminal 1: Tile Server
+With PMTiles, you only need ONE terminal (no tile server required):
+
 ```bash
 cd /mnt/c/Users/barry.winston/Documents/coding_projects/map_app
-python3 tile-server.py
-```
-Serves MBTiles at http://localhost:3000
-
-### Terminal 2: Web Server
-```bash
 python3 -m http.server 8000
 ```
 Open http://localhost:8000
+
+The PMTiles protocol handler loads tiles directly from `basemap/*.pmtiles` - no separate tile server needed.
 
 ---
 
 ## Git Workflow
 
+### Branching Strategy (Best Practice)
+
 ```bash
-# Check status
-git status
+# Create feature branch before making changes
+git checkout -b feature/your-feature-name
 
-# Stage and commit changes
+# Make your changes, then commit
 git add -A
-git commit -m "Your message"
+git commit -m "Add your feature"
 
-# Push to GitHub
-git push origin main
+# Push feature branch
+git push origin feature/your-feature-name
+
+# Create Pull Request on GitHub, then merge to main
+```
+
+### Branch Naming Conventions
+- `feature/` - New features (e.g., `feature/pmtiles-support`)
+- `fix/` - Bug fixes (e.g., `fix/layer-toggle`)
+- `docs/` - Documentation updates (e.g., `docs/readme-update`)
+
+### Quick Commands
+```bash
+git status                    # Check what's changed
+git checkout -b feature/xxx   # Create new branch
+git add -A && git commit -m "message"  # Commit all
+git push origin feature/xxx   # Push branch
 ```
 
 **Repository:** https://github.com/winston-network/map-ops (private)
@@ -306,14 +324,20 @@ git push origin main
 
 | Component | Technology |
 |-----------|------------|
-| Web Map | MapLibre GL JS |
+| Web Map | MapLibre GL JS + PMTiles protocol |
 | Mobile Map | MapLibre React Native |
 | Mobile Framework | React Native + Expo |
-| Tile Format | MBTiles (SQLite) |
+| Tile Format | PMTiles (no SQL required) |
 | Data Format | GeoJSON |
-| Tile Server | Python (http.server + sqlite3) |
+| Tile Server | **None needed** - PMTiles loads directly |
 | Build/Deploy | GitHub Actions + EAS Build |
 | Beta Testing | TestFlight |
+
+### Why No SQL/Tile Server?
+- **PMTiles** uses HTTP range requests to fetch tiles directly from the file
+- No SQLite database to query, no server-side processing
+- Works in browser, React Native, or any HTTP client
+- Convert from MBTiles: `pmtiles convert input.mbtiles output.pmtiles`
 
 ---
 

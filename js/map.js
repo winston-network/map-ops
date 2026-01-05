@@ -1,6 +1,7 @@
 /**
  * Map Module
  * Handles MapLibre GL map initialization and interactions
+ * Uses PMTiles for basemap (no SQL/tile server required)
  */
 
 const MapModule = (function() {
@@ -12,20 +13,19 @@ const MapModule = (function() {
     let watchId = null;
     let currentPosition = null;
     let isTracking = false;
+    let pmtilesProtocol = null;
 
-    // Tile server URL (run tile-server.js to serve local MBTiles)
-    const LOCAL_TILE_SERVER = 'http://localhost:3000';
+    // PMTiles basemap path (no tile server needed!)
+    const PMTILES_BASEMAP = 'basemap/satellite.pmtiles';
 
-    // Local MBTiles style (satellite imagery from your basemap)
-    const LOCAL_MBTILES_STYLE = {
+    // Local PMTiles style (satellite imagery - no SQL required)
+    const LOCAL_PMTILES_STYLE = {
         version: 8,
         name: 'Local Satellite',
         sources: {
             'local-tiles': {
                 type: 'raster',
-                tiles: [
-                    `${LOCAL_TILE_SERVER}/tiles/{z}/{x}/{y}`
-                ],
+                url: `pmtiles://${PMTILES_BASEMAP}`,
                 tileSize: 256
             }
         },
@@ -93,17 +93,27 @@ const MapModule = (function() {
     };
 
     /**
-     * Check if local tile server is available
+     * Check if PMTiles basemap file is available
      */
-    async function checkLocalTileServer() {
+    async function checkPMTilesAvailable() {
         try {
-            const response = await fetch(`${LOCAL_TILE_SERVER}/health`, {
-                method: 'GET',
-                mode: 'cors'
+            const response = await fetch(PMTILES_BASEMAP, {
+                method: 'HEAD'
             });
             return response.ok;
         } catch (e) {
             return false;
+        }
+    }
+
+    /**
+     * Initialize PMTiles protocol for MapLibre
+     */
+    function initPMTilesProtocol() {
+        if (typeof pmtiles !== 'undefined' && !pmtilesProtocol) {
+            pmtilesProtocol = new pmtiles.Protocol();
+            maplibregl.addProtocol('pmtiles', pmtilesProtocol.tile);
+            console.log('PMTiles protocol registered');
         }
     }
 
@@ -120,7 +130,10 @@ const MapModule = (function() {
 
         const mapOptions = { ...defaultOptions, ...options };
 
-        // Start with dark style, will switch to local tiles if available
+        // Initialize PMTiles protocol (no SQL/tile server needed)
+        initPMTilesProtocol();
+
+        // Start with dark style, will switch to PMTiles if available
         map = new maplibregl.Map({
             container: containerId,
             style: DARK_MAP_STYLE,
@@ -131,19 +144,19 @@ const MapModule = (function() {
             attributionControl: false
         });
 
-        // Check for local tile server and switch if available
-        checkLocalTileServer().then(available => {
+        // Check for local PMTiles basemap and switch if available
+        checkPMTilesAvailable().then(available => {
             if (available) {
-                console.log('Local tile server detected, switching to satellite basemap');
-                map.setStyle(LOCAL_MBTILES_STYLE);
+                console.log('PMTiles basemap found, switching to satellite (no tile server needed)');
+                map.setStyle(LOCAL_PMTILES_STYLE);
                 // Re-fire map:loaded after style fully loads so layers get re-added
                 map.once('idle', () => {
                     console.log('Map idle after style change, re-adding layers');
                     document.dispatchEvent(new CustomEvent('map:loaded'));
                 });
             } else {
-                console.log('Local tile server not available, using online tiles');
-                console.log('Run "node tile-server.js" to enable local satellite imagery');
+                console.log('PMTiles basemap not found, using online tiles');
+                console.log(`Add your basemap to: ${PMTILES_BASEMAP}`);
             }
         });
 
