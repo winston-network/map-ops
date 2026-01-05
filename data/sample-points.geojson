@@ -1,0 +1,29 @@
+{
+    "type": "FeatureCollection",
+    "features": [
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Sample Point 1",
+                "description": "This is a sample point of interest",
+                "category": "landmark"
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [-98.5795, 39.8283]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Sample Point 2",
+                "description": "Another sample location",
+                "category": "facility"
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [-97.5, 38.5]
+            }
+        }
+    ]
+}

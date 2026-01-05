@@ -1,0 +1,28 @@
+{
+    "type": "FeatureCollection",
+    "name": "Closure_Gates",
+    "features": [
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Upper/Cardiff Gate",
+                "type": "closure_gate"
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [-111.650556, 40.650556]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Lower Gate",
+                "type": "closure_gate"
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [-111.7775, 40.618056]
+            }
+        }
+    ]
+}

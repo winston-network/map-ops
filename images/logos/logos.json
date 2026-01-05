@@ -1,0 +1,9 @@
+{
+    "logos": [
+        { "file": "udot.png", "name": "Utah DOT" },
+        { "file": "usfs.png", "name": "US Forest Service" },
+        { "file": "alta.png", "name": "Alta Ski Area" },
+        { "file": "brighton.png", "name": "Brighton Resort" },
+        { "file": "sandy_city.png", "name": "Sandy City Police" }
+    ]
+}

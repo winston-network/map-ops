@@ -1,0 +1,8 @@
+{
+    "name": "MAPS-OPS Layers",
+    "files": [
+        "Avy_Paths.geojson",
+        "Closure_Gates.geojson",
+        "Pad_Locations.geojson"
+    ]
+}

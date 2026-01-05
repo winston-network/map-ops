@@ -1,0 +1,39 @@
+{
+    "type": "FeatureCollection",
+    "name": "Pad_Locations",
+    "features": [
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Stairs Gun Pad",
+                "type": "gun_pad"
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [-111.743056, 40.626111]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Argenta Gun Pad",
+                "type": "gun_pad"
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [-111.681389, 40.641944]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "name": "Kessler Gun Pad",
+                "type": "gun_pad"
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [-111.664722, 40.646944]
+            }
+        }
+    ]
+}
