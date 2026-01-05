@@ -300,22 +300,77 @@ const MapModule = (function() {
             }
         });
 
-        // Add point layer
-        map.addLayer({
-            id: pointLayerId,
-            type: 'circle',
-            source: sourceId,
-            filter: ['any',
-                ['==', ['geometry-type'], 'Point'],
-                ['==', ['geometry-type'], 'MultiPoint']
-            ],
-            paint: {
-                'circle-color': layer.color,
-                'circle-radius': 8,
-                'circle-stroke-color': '#ffffff',
-                'circle-stroke-width': 2
+        // Add point layer (use icon if available, otherwise circle)
+        if (layer.icon) {
+            // Load icon image if not already loaded
+            const iconId = `icon-${layer.id}`;
+            if (!map.hasImage(iconId)) {
+                map.loadImage(layer.icon.url, (error, image) => {
+                    if (error) {
+                        console.warn(`Failed to load icon for ${layer.id}, using circle fallback`);
+                        addCircleLayer();
+                        return;
+                    }
+                    map.addImage(iconId, image);
+                    addSymbolLayer();
+                });
+            } else {
+                addSymbolLayer();
             }
-        });
+
+            function addSymbolLayer() {
+                map.addLayer({
+                    id: pointLayerId,
+                    type: 'symbol',
+                    source: sourceId,
+                    filter: ['any',
+                        ['==', ['geometry-type'], 'Point'],
+                        ['==', ['geometry-type'], 'MultiPoint']
+                    ],
+                    layout: {
+                        'icon-image': iconId,
+                        'icon-size': (layer.icon.size || 32) / 32,
+                        'icon-allow-overlap': true,
+                        'icon-anchor': 'center'
+                    }
+                });
+            }
+
+            function addCircleLayer() {
+                map.addLayer({
+                    id: pointLayerId,
+                    type: 'circle',
+                    source: sourceId,
+                    filter: ['any',
+                        ['==', ['geometry-type'], 'Point'],
+                        ['==', ['geometry-type'], 'MultiPoint']
+                    ],
+                    paint: {
+                        'circle-color': layer.color,
+                        'circle-radius': 8,
+                        'circle-stroke-color': '#ffffff',
+                        'circle-stroke-width': 2
+                    }
+                });
+            }
+        } else {
+            // Default circle layer
+            map.addLayer({
+                id: pointLayerId,
+                type: 'circle',
+                source: sourceId,
+                filter: ['any',
+                    ['==', ['geometry-type'], 'Point'],
+                    ['==', ['geometry-type'], 'MultiPoint']
+                ],
+                paint: {
+                    'circle-color': layer.color,
+                    'circle-radius': 8,
+                    'circle-stroke-color': '#ffffff',
+                    'circle-stroke-width': 2
+                }
+            });
+        }
 
         // Add click handlers for features
         [pointLayerId, lineLayerId, polygonLayerId].forEach(layerId => {

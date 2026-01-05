@@ -619,6 +619,21 @@ body {
     text-decoration: underline;
 }
 
+/* Disclaimer */
+.app-disclaimer {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: var(--spacing-sm);
+    font-size: 0.625rem;
+    color: var(--text-muted);
+    background: rgba(0, 0, 0, 0.5);
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+    z-index: 100;
+    white-space: nowrap;
+}
+
 /* Feature Popup */
 .feature-popup {
     position: absolute;

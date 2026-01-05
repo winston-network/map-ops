@@ -63,6 +63,18 @@ const App = (function() {
             'Pad_Locations': { color: '#22c55e', name: 'Gun Pads' }          // Green
         };
 
+        // Load icons config
+        let iconsConfig = { defaultSize: 32, icons: [] };
+        try {
+            const iconsResponse = await fetch('images/icons/icons.json');
+            if (iconsResponse.ok) {
+                iconsConfig = await iconsResponse.json();
+                console.log(`Loaded icons config: ${iconsConfig.icons.length} icons defined`);
+            }
+        } catch (err) {
+            console.warn('No icons config found, using default circles');
+        }
+
         try {
             // Fetch manifest
             const manifestResponse = await fetch('layers/layers.json');
@@ -85,6 +97,16 @@ const App = (function() {
                     const baseName = filename.replace('.geojson', '');
                     const style = layerStyles[baseName] || { color: '#3b82f6', name: baseName };
 
+                    // Check for matching icon (matches layer name to icon layer name)
+                    const iconConfig = iconsConfig.icons.find(i => i.layer === baseName);
+                    let icon = null;
+                    if (iconConfig) {
+                        icon = {
+                            url: `images/icons/${iconConfig.file}`,
+                            size: iconConfig.size || iconsConfig.defaultSize
+                        };
+                    }
+
                     const layer = {
                         id: `layer_${baseName}`,
                         name: style.name,
@@ -92,7 +114,8 @@ const App = (function() {
                         visible: true,
                         data: parsed.data,
                         featureCount: parsed.featureCount,
-                        bounds: parsed.bounds
+                        bounds: parsed.bounds,
+                        icon: icon  // Will be null for polygon layers, set for point layers with icons
                     };
 
                     loadedLayers.push(layer);

@@ -1,0 +1,17 @@
+{
+    "defaultSize": 32,
+    "icons": [
+        {
+            "layer": "Closure_Gates",
+            "file": "Closure_Gates.png",
+            "size": 28,
+            "attribution": "Gate icons created by Backwoods - Flaticon"
+        },
+        {
+            "layer": "Pad_Locations",
+            "file": "Pad_Locations.png",
+            "size": 32,
+            "attribution": "Protection icons created by rukanicon - Flaticon"
+        }
+    ]
+}
