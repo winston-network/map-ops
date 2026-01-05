@@ -8,14 +8,23 @@ Offline map application for avalanche control operations in Utah's Little Cotton
 
 ## Current Status
 
-**Phase:** Web MVP Complete, React Native Setup In Progress
+**Phase:** Web MVP Complete, PMTiles Integration Done, Mobile App Next
 
-**Last Session:** Git/GitHub setup complete, Expo project scaffolded in `/mobile`
+**Last Session (Jan 4, 2026):**
+- Switched from MBTiles to PMTiles (no SQL/tile server required)
+- Set up Git branching workflow (feature branches → PRs → main)
+- Expo React Native project scaffolded in `/mobile`
+- Converted satellite basemap to PMTiles format
+- PR #1 open: https://github.com/winston-network/map-ops/pull/1
 
 **Next Steps:**
-1. Complete MapLibre React Native integration
-2. Set up EAS Build for iOS
-3. Configure TestFlight distribution
+1. Test mobile app with MapLibre React Native
+2. Test GPS location tracking for field personnel
+3. Update to new custom basemap
+4. Replace/add more GeoJSON layers
+5. Set up EAS Build for iOS
+6. TestFlight beta distribution
+7. App Store submission
 
 ---
 
