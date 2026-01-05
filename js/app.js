@@ -58,9 +58,12 @@ const App = (function() {
     async function autoLoadLayers() {
         // Layer colors - distinct for each type
         const layerStyles = {
-            'Avy_Paths': { color: '#ef4444', name: 'Avalanche Paths' },      // Red
-            'Closure_Gates': { color: '#f59e0b', name: 'Closure Gates' },    // Orange/Yellow
-            'Pad_Locations': { color: '#22c55e', name: 'Gun Pads' }          // Green
+            'Avy_Paths': { color: '#ef4444', name: 'LCC Avalanche Paths' },      // Red
+            'Closure_Gates': { color: '#f59e0b', name: 'LCC Closure Gates' },    // Orange/Yellow
+            'Pad_Locations': { color: '#22c55e', name: 'LCC Gun Pads' },         // Green
+            'BCC_AvyPaths': { color: '#f472b6', name: 'BCC Avalanche Paths' },   // Pink
+            'BCC_Gates': { color: '#f59e0b', name: 'BCC Gates' },                // Orange (match LCC gates)
+            'BCC_Staging': { color: '#a855f7', name: 'BCC Staging Areas' }       // Purple
         };
 
         // Load icons config
@@ -588,32 +591,61 @@ const App = (function() {
      * Render layers list
      */
     function renderLayersList() {
+        // First render basemaps section
+        const basemaps = MapModule.getBasemaps();
+        const activeBasemap = MapModule.getActiveBasemap();
+
+        let html = `
+            <div class="basemaps-section">
+                <div class="section-subtitle">Basemaps</div>
+                ${Object.entries(basemaps).map(([id, basemap]) => `
+                    <div class="layer-item basemap-item ${activeBasemap === id ? 'active' : ''}" data-basemap-id="${id}">
+                        <div class="layer-checkbox"></div>
+                        <span class="layer-color" style="background-color: ${id === 'satellite' ? '#3b82f6' : '#10b981'}"></span>
+                        <span class="layer-name">${basemap.name}</span>
+                        <span class="layer-count">z${basemap.minzoom}-${basemap.maxzoom}</span>
+                    </div>
+                `).join('')}
+            </div>
+            <div class="section-subtitle" style="margin-top: var(--spacing-md);">Data Layers</div>
+        `;
+
         if (state.layers.length === 0) {
-            elements.layersList.innerHTML = `
+            html += `
                 <p style="color: var(--text-muted); font-size: 0.875rem; text-align: center; padding: var(--spacing-md);">
-                    No layers loaded. Import GeoJSON, KML, or GPX files to get started.
+                    No layers loaded.
                 </p>
             `;
-            return;
+        } else {
+            html += state.layers.map(layer => `
+                <div class="layer-item ${layer.visible ? 'active' : ''}" data-layer-id="${layer.id}">
+                    <div class="layer-checkbox"></div>
+                    <span class="layer-color" style="background-color: ${layer.color}"></span>
+                    <span class="layer-name" title="${layer.name}">${layer.name}</span>
+                    <span class="layer-count">${layer.featureCount}</span>
+                    <button class="layer-delete" title="Remove layer" data-action="delete">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        </svg>
+                    </button>
+                </div>
+            `).join('');
         }
 
-        elements.layersList.innerHTML = state.layers.map(layer => `
-            <div class="layer-item ${layer.visible ? 'active' : ''}" data-layer-id="${layer.id}">
-                <div class="layer-checkbox"></div>
-                <span class="layer-color" style="background-color: ${layer.color}"></span>
-                <span class="layer-name" title="${layer.name}">${layer.name}</span>
-                <span class="layer-count">${layer.featureCount}</span>
-                <button class="layer-delete" title="Remove layer" data-action="delete">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="3 6 5 6 21 6"></polyline>
-                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                    </svg>
-                </button>
-            </div>
-        `).join('');
+        elements.layersList.innerHTML = html;
 
-        // Add event listeners
-        elements.layersList.querySelectorAll('.layer-item').forEach(item => {
+        // Add basemap event listeners
+        elements.layersList.querySelectorAll('.basemap-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const basemapId = item.dataset.basemapId;
+                MapModule.switchBasemap(basemapId);
+                renderLayersList(); // Re-render to update active state
+            });
+        });
+
+        // Add layer event listeners
+        elements.layersList.querySelectorAll('.layer-item:not(.basemap-item)').forEach(item => {
             item.addEventListener('click', (e) => {
                 const layerId = item.dataset.layerId;
                 const action = e.target.closest('[data-action]')?.dataset.action;

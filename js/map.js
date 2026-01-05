@@ -14,32 +14,69 @@ const MapModule = (function() {
     let currentPosition = null;
     let isTracking = false;
     let pmtilesProtocol = null;
+    let activeBasemap = 'topo'; // Track which basemap is active
 
-    // PMTiles basemap path (no tile server needed!)
-    const PMTILES_BASEMAP = 'basemap/satellite.pmtiles';
-
-    // Local PMTiles style (satellite imagery - no SQL required)
-    const LOCAL_PMTILES_STYLE = {
-        version: 8,
-        name: 'Local Satellite',
-        sources: {
-            'local-tiles': {
-                type: 'raster',
-                tiles: [`pmtiles://${PMTILES_BASEMAP}/{z}/{x}/{y}`],
-                tileSize: 256,
-                maxzoom: 19
-            }
+    // PMTiles basemap paths (no tile server needed!)
+    const BASEMAPS = {
+        topo: {
+            file: 'CC_shaded_topo.pmtiles',
+            name: 'Shaded Topo',
+            minzoom: 10,
+            maxzoom: 15
         },
-        layers: [
-            {
-                id: 'local-tiles-layer',
-                type: 'raster',
-                source: 'local-tiles',
-                minzoom: 0,
-                maxzoom: 19
-            }
-        ]
+        satellite: {
+            file: 'satellite.pmtiles',
+            name: 'Satellite',
+            minzoom: 0,
+            maxzoom: 19
+        }
     };
+
+    // Build PMTiles URL (needs full URL for protocol handler)
+    function getPMTilesUrl(filename) {
+        const base = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '');
+        const url = `pmtiles://${base}/basemap/${filename}`;
+        console.log('PMTiles URL:', url);
+        return url;
+    }
+
+    // Local PMTiles style - built dynamically to get correct URLs
+    function buildPMTilesStyle() {
+        return {
+            version: 8,
+            name: 'Local Basemaps',
+            sources: {
+                'topo-tiles': {
+                    type: 'raster',
+                    url: getPMTilesUrl(BASEMAPS.topo.file),
+                    tileSize: 256
+                },
+                'satellite-tiles': {
+                    type: 'raster',
+                    url: getPMTilesUrl(BASEMAPS.satellite.file),
+                    tileSize: 256
+                }
+            },
+            layers: [
+                {
+                    id: 'satellite-layer',
+                    type: 'raster',
+                    source: 'satellite-tiles',
+                    layout: {
+                        'visibility': 'none'
+                    }
+                },
+                {
+                    id: 'topo-layer',
+                    type: 'raster',
+                    source: 'topo-tiles',
+                    layout: {
+                        'visibility': 'visible'
+                    }
+                }
+            ]
+        };
+    }
 
     // Map style - using free OpenStreetMap tiles
     const MAP_STYLE = {
@@ -94,17 +131,64 @@ const MapModule = (function() {
     };
 
     /**
-     * Check if PMTiles basemap file is available
+     * Check if PMTiles basemap files are available
      */
     async function checkPMTilesAvailable() {
         try {
-            const response = await fetch(PMTILES_BASEMAP, {
-                method: 'HEAD'
-            });
-            return response.ok;
+            // Check if at least one basemap is available
+            const topoResponse = await fetch(`basemap/${BASEMAPS.topo.file}`, { method: 'HEAD' }).catch(() => ({ ok: false }));
+            const satResponse = await fetch(`basemap/${BASEMAPS.satellite.file}`, { method: 'HEAD' }).catch(() => ({ ok: false }));
+
+            console.log(`Basemap availability - Topo: ${topoResponse.ok}, Satellite: ${satResponse.ok}`);
+
+            return topoResponse.ok || satResponse.ok;
         } catch (e) {
             return false;
         }
+    }
+
+    /**
+     * Toggle basemap visibility
+     */
+    function setBasemapVisibility(basemapId, visible) {
+        if (!map) return;
+
+        const layerId = `${basemapId}-layer`;
+        if (map.getLayer(layerId)) {
+            map.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none');
+        }
+    }
+
+    /**
+     * Switch active basemap
+     */
+    function switchBasemap(basemapId) {
+        if (!map || !BASEMAPS[basemapId]) return;
+
+        // Hide all basemaps
+        Object.keys(BASEMAPS).forEach(id => {
+            setBasemapVisibility(id, false);
+        });
+
+        // Show selected basemap
+        setBasemapVisibility(basemapId, true);
+        activeBasemap = basemapId;
+
+        console.log(`Switched to ${BASEMAPS[basemapId].name} basemap`);
+    }
+
+    /**
+     * Get available basemaps
+     */
+    function getBasemaps() {
+        return BASEMAPS;
+    }
+
+    /**
+     * Get active basemap
+     */
+    function getActiveBasemap() {
+        return activeBasemap;
     }
 
     /**
@@ -148,8 +232,8 @@ const MapModule = (function() {
         // Check for local PMTiles basemap and switch if available
         checkPMTilesAvailable().then(available => {
             if (available) {
-                console.log('PMTiles basemap found, switching to satellite (no tile server needed)');
-                map.setStyle(LOCAL_PMTILES_STYLE);
+                console.log('PMTiles basemap found, switching to local tiles (no tile server needed)');
+                map.setStyle(buildPMTilesStyle());
                 // Re-fire map:loaded after style fully loads so layers get re-added
                 map.once('idle', () => {
                     console.log('Map idle after style change, re-adding layers');
@@ -157,7 +241,7 @@ const MapModule = (function() {
                 });
             } else {
                 console.log('PMTiles basemap not found, using online tiles');
-                console.log(`Add your basemap to: ${PMTILES_BASEMAP}`);
+                console.log(`Add your basemap to: basemap/*.pmtiles`);
             }
         });
 
@@ -736,7 +820,11 @@ const MapModule = (function() {
         getMap,
         getTrackingStatus,
         getPosition,
-        updateScaleBar
+        updateScaleBar,
+        switchBasemap,
+        getBasemaps,
+        getActiveBasemap,
+        setBasemapVisibility
     };
 })();
 

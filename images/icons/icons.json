@@ -2,16 +2,16 @@
     "defaultSize": 32,
     "icons": [
         {
-            "layer": "Closure_Gates",
-            "file": "Closure_Gates.png",
-            "size": 28,
+            "layer": "BCC_Staging",
+            "file": "BCC_Staging.png",
+            "size": 2,
             "attribution": "Gate icons created by Backwoods - Flaticon"
         },
         {
-            "layer": "Pad_Locations",
-            "file": "Pad_Locations.png",
-            "size": 32,
-            "attribution": "Protection icons created by rukanicon - Flaticon"
+            "layer": "BCC_Gates",
+            "file": "BCC_Gates.png",
+            "size": 3,
+            "attribution": "Gate icons created by Backwoods - Flaticon"
         }
     ]
 }

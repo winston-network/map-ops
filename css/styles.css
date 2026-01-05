@@ -318,6 +318,22 @@ body {
     gap: var(--spacing-sm);
 }
 
+.section-subtitle {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    padding: var(--spacing-xs) 0;
+    margin-bottom: var(--spacing-xs);
+}
+
+.basemaps-section {
+    padding-bottom: var(--spacing-sm);
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: var(--spacing-sm);
+}
+
 .layer-item {
     display: flex;
     align-items: center;
@@ -625,13 +641,16 @@ body {
     left: 50%;
     transform: translateX(-50%);
     bottom: var(--spacing-sm);
-    font-size: 0.625rem;
-    color: var(--text-muted);
-    background: rgba(0, 0, 0, 0.5);
-    padding: 2px 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #ef4444;
+    background: rgba(0, 0, 0, 0.7);
+    padding: 4px 12px;
     border-radius: var(--radius-sm);
     z-index: 100;
     white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 
 /* Feature Popup */

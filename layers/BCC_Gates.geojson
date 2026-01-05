@@ -1,0 +1,57 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "geometry": {
+        "coordinates": [
+          -111.65054,
+          40.65086
+        ],
+        "type": "Point"
+      },
+      "id": "3d56bea7-0b1c-41c8-bca2-2fcd6e9ae452",
+      "type": "Feature",
+      "properties": {
+        "-updated-by": "R6D7KA",
+        "creator": "R6D7KA",
+        "-created-on": 1766325075465,
+        "-updated-on": 1766325075465,
+        "description": "Upper Gate",
+        "title": "",
+        "marker-size": "1.5",
+        "marker-rotation": null,
+        "marker-symbol": "flag-1",
+        "marker-color": "FFAA00",
+        "class": "Marker",
+        "updated": 1766325075465,
+        "-created-by": "R6D7KA"
+      }
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          -111.77793,
+          40.61876
+        ],
+        "type": "Point"
+      },
+      "id": "9bff6770-20cd-421c-aacf-d5d45bb48ff2",
+      "type": "Feature",
+      "properties": {
+        "-updated-by": "R6D7KA",
+        "creator": "R6D7KA",
+        "-created-on": 1766325907693,
+        "-updated-on": 1766325907693,
+        "description": "Lower Gate",
+        "title": "",
+        "marker-size": "1.5",
+        "marker-rotation": null,
+        "marker-symbol": "flag-1",
+        "marker-color": "FFAA00",
+        "class": "Marker",
+        "updated": 1766325907693,
+        "-created-by": "R6D7KA"
+      }
+    }
+  ]
+}

@@ -1,8 +1,11 @@
 {
-    "name": "MAPS-OPS Layers",
+    "name": "MAP-OPS Layers",
     "files": [
         "Avy_Paths.geojson",
         "Closure_Gates.geojson",
-        "Pad_Locations.geojson"
+        "Pad_Locations.geojson",
+        "BCC_AvyPaths.geojson",
+        "BCC_Gates.geojson",
+        "BCC_Staging.geojson"
     ]
 }
