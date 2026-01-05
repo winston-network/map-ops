@@ -19,10 +19,10 @@ const MapModule = (function() {
     // PMTiles basemap paths (no tile server needed!)
     const BASEMAPS = {
         topo: {
-            file: 'CC_shaded_topo.pmtiles',
+            file: 'CC_shaded_topo_big.pmtiles',
             name: 'Shaded Topo',
             minzoom: 10,
-            maxzoom: 15
+            maxzoom: 16
         },
         satellite: {
             file: 'satellite.pmtiles',
