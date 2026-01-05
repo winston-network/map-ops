@@ -25,8 +25,9 @@ const MapModule = (function() {
         sources: {
             'local-tiles': {
                 type: 'raster',
-                url: `pmtiles://${PMTILES_BASEMAP}`,
-                tileSize: 256
+                tiles: [`pmtiles://${PMTILES_BASEMAP}/{z}/{x}/{y}`],
+                tileSize: 256,
+                maxzoom: 19
             }
         },
         layers: [
