@@ -109,34 +109,44 @@ body {
 }
 
 .app-logo {
-    width: 28px;
-    height: 28px;
-    color: var(--primary-light);
-    filter: drop-shadow(0 0 4px rgba(129, 140, 248, 0.5));
+    width: 36px;
+    height: 36px;
+    object-fit: contain;
+    filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.4))
+            drop-shadow(0 0 16px rgba(100, 180, 255, 0.3));
 }
 
 .app-title-group {
     display: flex;
     flex-direction: column;
-    gap: 0;
+    gap: 2px;
 }
 
 .app-title {
-    font-size: 1.25rem;
-    font-weight: 600;
-    background: linear-gradient(135deg, var(--primary-light), var(--primary));
+    font-size: 1.5rem;
+    font-weight: 800;
+    background: linear-gradient(180deg, #ffffff 0%, #e0f0ff 40%, #7ec8ff 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-    letter-spacing: 0.05em;
-    line-height: 1.2;
+    letter-spacing: 0.15em;
+    line-height: 1.1;
+    filter: drop-shadow(0 0 8px rgba(120, 200, 255, 0.8))
+            drop-shadow(0 0 16px rgba(80, 160, 255, 0.5))
+            drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
 }
 
 .app-subtitle {
-    font-size: 0.625rem;
-    color: var(--text-muted);
-    letter-spacing: 0.02em;
+    font-size: 0.6rem;
+    font-weight: 700;
+    color: #ef4444;
+    letter-spacing: 0.12em;
     line-height: 1;
+    text-transform: uppercase;
+    text-shadow:
+        0 0 10px rgba(239, 68, 68, 0.6),
+        0 0 20px rgba(239, 68, 68, 0.4),
+        0 1px 3px rgba(0, 0, 0, 0.8);
 }
 
 /* Agency Logos */
@@ -319,13 +329,14 @@ body {
 }
 
 .section-subtitle {
-    font-size: 0.75rem;
-    font-weight: 600;
+    font-size: 0.7rem;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--text-muted);
+    letter-spacing: 0.15em;
+    color: #7ec8ff;
     padding: var(--spacing-xs) 0;
     margin-bottom: var(--spacing-xs);
+    text-shadow: 0 0 10px rgba(120, 200, 255, 0.3);
 }
 
 .basemaps-section {
@@ -361,8 +372,9 @@ body {
 }
 
 .layer-item.active .layer-checkbox {
-    background: var(--primary);
-    border-color: var(--primary);
+    background: linear-gradient(135deg, #60b0ff, #4090e0);
+    border-color: #7ec8ff;
+    box-shadow: 0 0 8px rgba(120, 200, 255, 0.4);
 }
 
 .layer-item.active .layer-checkbox::after {
@@ -381,10 +393,18 @@ body {
 
 .layer-name {
     flex: 1;
-    font-size: 0.875rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+    letter-spacing: 0.03em;
+    color: #e0f0ff;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.basemap-item .layer-name {
+    font-weight: 600;
+    letter-spacing: 0.05em;
 }
 
 .layer-count {
@@ -655,39 +675,36 @@ body {
 
 /* Feature Popup */
 .feature-popup {
-    position: absolute;
-    bottom: var(--spacing-xl);
-    left: 50%;
-    transform: translateX(-50%);
-    width: calc(100% - var(--spacing-lg) * 2);
-    max-width: 400px;
-    max-height: 300px;
+    position: fixed;
+    width: auto;
+    min-width: 150px;
+    max-width: 280px;
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-md);
     box-shadow: var(--shadow-lg);
-    z-index: 500;
+    z-index: 1000;
     overflow: hidden;
-    transition: all var(--transition-normal);
+    pointer-events: auto;
 }
 
 .feature-popup.hidden {
     opacity: 0;
-    transform: translateX(-50%) translateY(20px);
     pointer-events: none;
+    display: none;
 }
 
 .popup-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: var(--spacing-sm) var(--spacing-md);
+    padding: var(--spacing-xs) var(--spacing-sm);
     background: var(--bg-tertiary);
     border-bottom: 1px solid var(--border-color);
 }
 
 .popup-header h4 {
-    font-size: 0.875rem;
+    font-size: 0.75rem;
     font-weight: 600;
 }
 
@@ -712,9 +729,10 @@ body {
 }
 
 .popup-content {
-    padding: var(--spacing-md);
+    padding: var(--spacing-sm);
     max-height: 220px;
     overflow-y: auto;
+    text-align: left;
 }
 
 .popup-content .property-row {
@@ -881,8 +899,7 @@ body {
     }
 
     .feature-popup {
-        bottom: var(--spacing-md);
-        max-height: 250px;
+        max-height: 200px;
     }
 
     .map-controls {

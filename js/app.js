@@ -219,7 +219,8 @@ const App = (function() {
      */
     function setupEventListeners() {
         // Menu toggle
-        elements.menuToggle.addEventListener('click', toggleSidebar);
+        // Menu toggle removed - sidebar always visible
+        // elements.menuToggle.addEventListener('click', toggleSidebar);
 
         // Map controls
         elements.locateBtn.addEventListener('click', handleLocate);
@@ -455,37 +456,83 @@ const App = (function() {
         const { layerId, feature, lngLat } = event.detail;
         const layer = state.layers.find(l => l.id === layerId);
 
-        showFeaturePopup(feature, layer);
+        showFeaturePopup(feature, layer, lngLat);
     }
 
     /**
      * Show feature popup
      */
-    function showFeaturePopup(feature, layer) {
+    function showFeaturePopup(feature, layer, lngLat) {
         const properties = feature.properties || {};
-        const title = properties.name || properties.title || layer?.name || 'Feature Details';
+        const layerId = layer?.id || '';
 
-        elements.popupTitle.textContent = title;
+        // For BCC layers, show simplified popup with just description
+        const isBCCLayer = layerId.includes('BCC');
 
-        // Build properties HTML
-        let html = '';
-        for (const [key, value] of Object.entries(properties)) {
-            if (value !== null && value !== undefined && key !== 'name' && key !== 'title') {
-                html += `
-                    <div class="property-row">
-                        <span class="property-key">${formatPropertyKey(key)}</span>
-                        <span class="property-value">${formatPropertyValue(value)}</span>
-                    </div>
-                `;
+        let title, html;
+
+        if (isBCCLayer) {
+            // Use description as the main content for BCC layers
+            const description = properties.description || properties.name || 'Unknown';
+            title = layer?.name || 'Feature';
+            html = `<div class="property-value" style="font-size: 0.9rem;">${description}</div>`;
+        } else {
+            // Default behavior for other layers
+            title = properties.name || properties.title || layer?.name || 'Feature Details';
+            html = '';
+            for (const [key, value] of Object.entries(properties)) {
+                if (value !== null && value !== undefined && key !== 'name' && key !== 'title') {
+                    html += `
+                        <div class="property-row">
+                            <span class="property-key">${formatPropertyKey(key)}</span>
+                            <span class="property-value">${formatPropertyValue(value)}</span>
+                        </div>
+                    `;
+                }
+            }
+            if (html === '') {
+                html = '<p style="color: var(--text-muted);">No properties available</p>';
             }
         }
 
-        if (html === '') {
-            html = '<p style="color: var(--text-muted);">No properties available</p>';
-        }
-
+        elements.popupTitle.textContent = title;
         elements.popupContent.innerHTML = html;
         elements.featurePopup.classList.remove('hidden');
+
+        // Position popup near clicked feature (5 o'clock position - below and slightly right)
+        if (lngLat && MapModule.getMap) {
+            const map = MapModule.getMap();
+            if (map) {
+                const point = map.project([lngLat.lng, lngLat.lat]);
+                const popup = elements.featurePopup;
+                const mapContainer = map.getContainer();
+                const mapRect = mapContainer.getBoundingClientRect();
+
+                // Get popup dimensions after content is set
+                popup.style.visibility = 'hidden';
+                popup.style.display = 'block';
+                const popupRect = popup.getBoundingClientRect();
+                popup.style.visibility = '';
+
+                // 5 o'clock position: below and slightly to the right
+                let left = mapRect.left + point.x + 10;
+                let top = mapRect.top + point.y + 15;
+
+                // Keep popup within map bounds
+                if (left + popupRect.width > mapRect.right - 10) {
+                    // Flip to left side if not enough room on right
+                    left = mapRect.left + point.x - popupRect.width - 10;
+                }
+                if (top + popupRect.height > mapRect.bottom - 10) {
+                    // Move up if not enough room below
+                    top = mapRect.bottom - popupRect.height - 10;
+                }
+
+                popup.style.position = 'fixed';
+                popup.style.left = left + 'px';
+                popup.style.top = top + 'px';
+            }
+        }
     }
 
     /**
@@ -601,9 +648,7 @@ const App = (function() {
                 ${Object.entries(basemaps).map(([id, basemap]) => `
                     <div class="layer-item basemap-item ${activeBasemap === id ? 'active' : ''}" data-basemap-id="${id}">
                         <div class="layer-checkbox"></div>
-                        <span class="layer-color" style="background-color: ${id === 'satellite' ? '#3b82f6' : '#10b981'}"></span>
                         <span class="layer-name">${basemap.name}</span>
-                        <span class="layer-count">z${basemap.minzoom}-${basemap.maxzoom}</span>
                     </div>
                 `).join('')}
             </div>
