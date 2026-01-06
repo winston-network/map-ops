@@ -2,29 +2,35 @@
 
 **Mountain Avalanche Protection Operations**
 
-Offline map application for avalanche control operations in Utah's Little Cottonwood Canyon area.
+Offline map application for avalanche control operations in Utah's Cottonwood Canyons.
 
 ---
 
 ## Current Status
 
-**Phase:** Web MVP Complete, PMTiles Integration Done, Mobile App Next
+**Phase:** Web MVP Complete, Mobile App Next
 
-**Last Session (Jan 4, 2026):**
-- Switched from MBTiles to PMTiles (no SQL/tile server required)
-- Set up Git branching workflow (feature branches → PRs → main)
-- Expo React Native project scaffolded in `/mobile`
-- Converted satellite basemap to PMTiles format
-- PR #1 open: https://github.com/winston-network/map-ops/pull/1
+**Latest Updates (Jan 5, 2026):**
+- Custom shaded topo basemap (CC_shaded_topo_big.pmtiles, zoom 10-16)
+- Basemap toggle (Topo/Satellite) in sidebar
+- Big Cottonwood Canyon (BCC) layers added:
+  - BCC Avalanche Paths (polygons)
+  - BCC Gates (points with custom icons)
+  - BCC Staging Areas (points with custom icons)
+- Custom icon system for point layers
+- Improved UI design:
+  - Ice-blue gradient MAP-OPS title with glow effects
+  - Red warning subtitle
+  - Snowflake logo
+  - Feature popups appear near clicked features (5 o'clock position)
+  - Simplified BCC popups showing only description
+- All branches merged to main, clean repo state
 
 **Next Steps:**
-1. Test mobile app with MapLibre React Native
-2. Test GPS location tracking for field personnel
-3. Update to new custom basemap
-4. Replace/add more GeoJSON layers
-5. Set up EAS Build for iOS
-6. TestFlight beta distribution
-7. App Store submission
+1. Test React Native mobile app (when WiFi available)
+2. Test GPS location tracking on physical device
+3. EAS Build for iOS
+4. TestFlight beta distribution
 
 ---
 
@@ -32,13 +38,14 @@ Offline map application for avalanche control operations in Utah's Little Cotton
 
 MAP-OPS is an offline-capable map application designed for avalanche control teams operating in mountain terrain. It displays:
 
-- **Custom satellite/topo basemaps** loaded from PMTiles files (no SQL/tile server needed)
+- **Custom basemaps** - Toggle between Shaded Topo and Satellite (PMTiles format, no server needed)
 - **Operational layers** (GeoJSON):
   - Avalanche Paths (polygons) - Red
   - Closure Gates (points) - Orange
-  - Gun Pads (points) - Green
+  - Staging Areas (points) - Blue
 - **GPS location tracking** for field personnel
 - **Layer toggle** to show/hide different data layers
+- **Feature popups** with details when clicking points/polygons
 
 The app works offline by bundling tile data and GeoJSON layers locally.
 
@@ -50,72 +57,41 @@ The app works offline by bundling tile data and GeoJSON layers locally.
 
 | Component | Format | SQL Needed? |
 |-----------|--------|-------------|
-| Basemap tiles | PMTiles | **No** - direct file read via protocol handler |
+| Basemap tiles | PMTiles | **No** - HTTP range requests |
 | Overlay layers | GeoJSON | **No** - JSON files |
 | Manifest/config | JSON | **No** - JSON files |
-| User data (future) | Optional SQLite | Only if you add bookmarks, notes, etc. |
 
 **PMTiles vs MBTiles:**
-- MBTiles = SQLite database → requires SQL driver or tile server
-- PMTiles = single optimized file → direct browser/app access, no server needed
+- MBTiles = SQLite database (requires SQL driver or tile server)
+- PMTiles = single optimized file (direct browser access, no server)
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         MAP-OPS                                  │
-├─────────────────────────────────────────────────────────────────┤
-│  ┌─────────────┐   ┌─────────────┐   ┌─────────────────────┐   │
-│  │   index.html │   │  styles.css │   │  manifest.json      │   │
-│  │   (UI Shell) │   │  (Dark Theme)│   │  (PWA Config)       │   │
-│  └──────┬──────┘   └─────────────┘   └─────────────────────┘   │
-│         │                                                        │
-│  ┌──────▼──────────────────────────────────────────────────┐    │
-│  │                    JavaScript Modules                     │    │
-│  ├──────────────┬──────────────┬──────────────┬────────────┤    │
-│  │   app.js     │   map.js     │   data.js    │layer-utils │    │
-│  │  (Main App)  │  (MapLibre)  │  (Loading)   │  (GeoJSON) │    │
-│  │              │              │              │            │    │
-│  │ - Init       │ - Map setup  │ - File parse │ - UTM conv │    │
-│  │ - UI events  │ - PMTiles    │ - GeoJSON    │ - Merge    │    │
-│  │ - Layer mgmt │ - GPS track  │              │ - Bounds   │    │
-│  └──────────────┴──────────────┴──────────────┴────────────┘    │
-│                              │                                   │
-│  ┌───────────────────────────▼───────────────────────────────┐  │
-│  │                    Data Sources (No SQL)                   │  │
-│  ├─────────────────────┬─────────────────────────────────────┤  │
-│  │  basemap/           │  layers/                             │  │
-│  │  └─ *.pmtiles       │  ├─ layers.json (manifest)           │  │
-│  │     (Satellite/Topo)│  ├─ Avy_Paths.geojson                │  │
-│  │     No tile server! │  ├─ Closure_Gates.geojson            │  │
-│  │                     │  └─ Pad_Locations.geojson            │  │
-│  └─────────────────────┴─────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Module Responsibilities
-
-| Module | File | Purpose |
-|--------|------|---------|
-| **App** | `js/app.js` | Main coordinator. Handles UI, layer management, auto-loads layers from manifest |
-| **Map** | `js/map.js` | MapLibre GL JS + PMTiles protocol. Map init, layer rendering, GPS tracking |
-| **Data** | `js/data.js` | File parsing (GeoJSON, KML, GPX, CSV), coordinate detection |
-| **Layer Utils** | `js/layer-utils.js` | UTM to WGS84 conversion, GeoJSON merging, bounds calculation |
-
-### Data Flow
-
-```
-1. App Init
-   └─> Load layers/layers.json (manifest)
-       └─> For each file in manifest:
-           └─> Fetch GeoJSON from layers/
-               └─> Parse & detect coordinate system
-                   └─> Convert UTM to WGS84 if needed
-                       └─> Add to MapLibre as source/layer
-
-2. Basemap Loading (PMTiles - No Server Required)
-   └─> PMTiles protocol handler registered with MapLibre
-       └─> Load basemap/*.pmtiles directly
-           └─> Tiles fetched on-demand via HTTP range requests
-               └─> No SQLite, no tile server needed
++---------------------------------------------------------------+
+|                         MAP-OPS                               |
++---------------------------------------------------------------+
+|  index.html        styles.css        manifest.json            |
+|  (UI Shell)        (Dark Theme)      (PWA Config)             |
+|                                                               |
+|  +----------------------------------------------------------+ |
+|  |                  JavaScript Modules                       | |
+|  +------------+------------+------------+-------------------+ |
+|  |  app.js    |  map.js    |  data.js   |  layer-utils.js   | |
+|  | - Init     | - MapLibre | - Parsing  | - UTM conversion  | |
+|  | - UI/Layer | - PMTiles  | - GeoJSON  | - Bounds calc     | |
+|  | - Popups   | - Basemap  |            |                   | |
+|  |            |   toggle   |            |                   | |
+|  +------------+------------+------------+-------------------+ |
+|                            |                                  |
+|  +-------------------------v--------------------------------+ |
+|  |                 Data Sources (No SQL)                    | |
+|  +--------------------------+-------------------------------+ |
+|  | basemap/                 | layers/                       | |
+|  | - CC_shaded_topo.pmtiles | - layers.json (manifest)      | |
+|  | - satellite.pmtiles      | - BCC_AvyPaths.geojson        | |
+|  |   (No tile server!)      | - BCC_Gates.geojson           | |
+|  |                          | - BCC_Staging.geojson         | |
+|  +--------------------------+-------------------------------+ |
++---------------------------------------------------------------+
 ```
 
 ---
@@ -127,39 +103,42 @@ map_app/
 ├── index.html              # Main app HTML
 ├── manifest.json           # PWA manifest
 ├── service-worker.js       # Offline caching
-├── .gitignore              # Excludes .pmtiles, node_modules
 ├── README.md               # This file
 │
 ├── css/
-│   └── styles.css          # Dark theme, responsive layout
+│   └── styles.css          # Dark theme, ice-blue accents
 │
 ├── js/
-│   ├── app.js              # Main application logic
-│   ├── map.js              # MapLibre map handling
+│   ├── app.js              # Main app, layer management, popups
+│   ├── map.js              # MapLibre + PMTiles, basemap toggle
 │   ├── data.js             # Data loading & parsing
 │   └── layer-utils.js      # GeoJSON utilities
 │
 ├── layers/
-│   ├── layers.json         # Layer manifest (auto-load list)
-│   ├── Avy_Paths.geojson   # Avalanche path polygons
-│   ├── Closure_Gates.geojson
-│   └── Pad_Locations.geojson
+│   ├── layers.json         # Layer manifest
+│   ├── BCC_AvyPaths.geojson
+│   ├── BCC_Gates.geojson
+│   ├── BCC_Staging.geojson
+│   └── archive/            # Old LCC layers
 │
 ├── basemap/
-│   └── *.pmtiles           # Satellite/topo tiles (NOT in git, no SQL needed)
+│   ├── CC_shaded_topo_big.pmtiles  # Topo basemap (zoom 10-16)
+│   └── satellite.pmtiles           # Satellite basemap
 │
 ├── images/
-│   ├── logos/              # Agency partner logos
-│   │   ├── logos.json      # Logo manifest
-│   │   └── *.png           # Logo files
-│   └── icons/              # Layer icons (for point features)
-│       ├── icons.json      # Icon config (sizes, defaults)
-│       └── *.png           # Icon files (named to match layers)
+│   ├── icons/
+│   │   ├── icons.json      # Icon config
+│   │   ├── snowflake.png   # App logo
+│   │   ├── BCC_Gates.png
+│   │   └── BCC_Staging.png
+│   └── logos/
+│       ├── logos.json
+│       └── *.png           # Agency logos
 │
 └── mobile/                 # React Native app (Expo)
     ├── App.js
     ├── package.json
-    └── ...                 # (In progress)
+    └── ...
 ```
 
 ---
@@ -171,22 +150,9 @@ map_app/
 {
   "name": "MAP-OPS Layers",
   "files": [
-    "Avy_Paths.geojson",
-    "Closure_Gates.geojson",
-    "Pad_Locations.geojson"
-  ]
-}
-```
-
-### images/logos/logos.json
-```json
-{
-  "logos": [
-    { "file": "udot.png", "name": "Utah DOT" },
-    { "file": "usfs.png", "name": "US Forest Service" },
-    { "file": "alta.png", "name": "Alta Ski Area" },
-    { "file": "brighton.png", "name": "Brighton Resort" },
-    { "file": "sandy_city.png", "name": "Sandy City Police" }
+    "BCC_AvyPaths.geojson",
+    "BCC_Gates.geojson",
+    "BCC_Staging.geojson"
   ]
 }
 ```
@@ -196,8 +162,8 @@ map_app/
 {
   "defaultSize": 32,
   "icons": [
-    { "layer": "Closure_Gates", "file": "Closure_Gates.png", "size": 28 },
-    { "layer": "Pad_Locations", "file": "Pad_Locations.png", "size": 32 }
+    { "layer": "BCC_Staging", "file": "BCC_Staging.png", "size": 2 },
+    { "layer": "BCC_Gates", "file": "BCC_Gates.png", "size": 3 }
   ]
 }
 ```
@@ -210,9 +176,9 @@ Defined in `js/app.js`:
 
 ```javascript
 const layerStyles = {
-  'Avy_Paths':      { color: '#ef4444', name: 'Avalanche Paths' },  // Red
-  'Closure_Gates':  { color: '#f59e0b', name: 'Closure Gates' },    // Orange
-  'Pad_Locations':  { color: '#22c55e', name: 'Gun Pads' }          // Green
+  'BCC_AvyPaths':  { color: '#ef4444', name: 'BCC Avalanche Paths' },  // Red
+  'BCC_Gates':     { color: '#f59e0b', name: 'BCC Gates' },            // Orange
+  'BCC_Staging':   { color: '#3b82f6', name: 'BCC Staging Areas' }     // Blue
 };
 ```
 
@@ -220,47 +186,47 @@ const layerStyles = {
 
 ## Running Locally
 
-With PMTiles, you only need ONE terminal (no tile server required):
+**Important:** Use `http-server` (not Python's simple server) because PMTiles requires HTTP Range requests.
 
 ```bash
+# Install http-server (once)
+npm install -g http-server
+
+# Run from project directory
 cd /mnt/c/Users/barry.winston/Documents/coding_projects/map_app
-python3 -m http.server 8000
+http-server -p 8000 --cors
 ```
+
 Open http://localhost:8000
 
-The PMTiles protocol handler loads tiles directly from `basemap/*.pmtiles` - no separate tile server needed.
+---
+
+## Converting Basemaps
+
+To convert MBTiles to PMTiles:
+
+```bash
+# Install pmtiles CLI (once)
+npm install -g pmtiles
+
+# Convert
+pmtiles convert input.mbtiles output.pmtiles
+```
 
 ---
 
 ## Git Workflow
 
-### Branching Strategy (Best Practice)
-
 ```bash
-# Create feature branch before making changes
+# Create feature branch
 git checkout -b feature/your-feature-name
 
-# Make your changes, then commit
+# Make changes, commit
 git add -A
 git commit -m "Add your feature"
 
-# Push feature branch
+# Push and create PR
 git push origin feature/your-feature-name
-
-# Create Pull Request on GitHub, then merge to main
-```
-
-### Branch Naming Conventions
-- `feature/` - New features (e.g., `feature/pmtiles-support`)
-- `fix/` - Bug fixes (e.g., `fix/layer-toggle`)
-- `docs/` - Documentation updates (e.g., `docs/readme-update`)
-
-### Quick Commands
-```bash
-git status                    # Check what's changed
-git checkout -b feature/xxx   # Create new branch
-git add -A && git commit -m "message"  # Commit all
-git push origin feature/xxx   # Push branch
 ```
 
 **Repository:** https://github.com/winston-network/map-ops (private)
@@ -271,28 +237,28 @@ git push origin feature/xxx   # Push branch
 
 ### Phase 1: Web MVP (COMPLETE)
 - [x] MapLibre GL JS map
-- [x] MBTiles tile server
+- [x] PMTiles basemaps (no tile server)
+- [x] Basemap toggle (Topo/Satellite)
 - [x] Auto-load GeoJSON layers
 - [x] Layer visibility toggle
+- [x] Custom icons for point layers
+- [x] Feature popups near clicked items
 - [x] GPS location tracking
-- [x] Dark theme UI
+- [x] Dark theme UI with ice-blue accents
 - [x] Agency logos
-- [x] Git + GitHub setup
 
-### Phase 2: React Native (IN PROGRESS)
+### Phase 2: React Native (NEXT)
 - [x] Expo project scaffolded
 - [ ] MapLibre React Native integration
-- [ ] Custom icons for point layers
-- [ ] MBTiles bundling/download
-- [ ] Layer config screen
+- [ ] Test on physical device
+- [ ] PMTiles bundling for mobile
 
 ### Phase 3: Distribution
-- [ ] EAS Build setup (cloud iOS builds)
-- [ ] TestFlight beta distribution
+- [ ] EAS Build setup
+- [ ] TestFlight beta
 - [ ] App Store submission
 
 ### Phase 4: Enhancements
-- [ ] Swappable basemap selector
 - [ ] Offline layer sync
 - [ ] Field data collection
 - [ ] Team location sharing
@@ -309,44 +275,28 @@ git push origin feature/xxx   # Push branch
 
 ---
 
-## Attribution & Credits
-
-### Icons
-- <a href="https://www.flaticon.com/free-icons/gate" title="gate icons">Gate icons created by Backwoods - Flaticon</a>
-- <a href="https://www.flaticon.com/free-icons/protection" title="protection icons">Protection icons created by rukanicon - Flaticon</a>
-
-### Mapping Libraries
-- [MapLibre GL JS](https://maplibre.org/) - Open-source map rendering
-- [MapLibre React Native](https://github.com/maplibre/maplibre-react-native) - Mobile map SDK
-
-### Data Sources
-- Basemap tiles: Custom MBTiles (QGIS export)
-- Operational layers: Internal GIS data
-
-### Tools
-- [Expo](https://expo.dev/) - React Native framework
-- [EAS Build](https://expo.dev/eas) - Cloud build service
-
----
-
 ## Tech Stack
 
 | Component | Technology |
 |-----------|------------|
-| Web Map | MapLibre GL JS + PMTiles protocol |
+| Web Map | MapLibre GL JS + PMTiles |
 | Mobile Map | MapLibre React Native |
 | Mobile Framework | React Native + Expo |
-| Tile Format | PMTiles (no SQL required) |
+| Tile Format | PMTiles (no SQL) |
 | Data Format | GeoJSON |
-| Tile Server | **None needed** - PMTiles loads directly |
-| Build/Deploy | GitHub Actions + EAS Build |
-| Beta Testing | TestFlight |
+| Tile Server | **None needed** |
 
-### Why No SQL/Tile Server?
-- **PMTiles** uses HTTP range requests to fetch tiles directly from the file
-- No SQLite database to query, no server-side processing
-- Works in browser, React Native, or any HTTP client
-- Convert from MBTiles: `pmtiles convert input.mbtiles output.pmtiles`
+---
+
+## Attribution
+
+### Icons
+- Gate icons created by Backwoods - Flaticon
+- Protection icons created by rukanicon - Flaticon
+
+### Mapping
+- [MapLibre GL JS](https://maplibre.org/)
+- [PMTiles](https://github.com/protomaps/PMTiles)
 
 ---
 
