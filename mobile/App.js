@@ -1,33 +1,28 @@
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, View, Text } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import MapLibreGL from '@maplibre/maplibre-react-native';
+
+// Initialize MapLibre (no access token needed for free tiles)
+MapLibreGL.setAccessToken(null);
 
 // BCC Gates data
 const gates = [
-  { id: 1, latitude: 40.65086, longitude: -111.65054, description: "Upper Gate" },
-  { id: 2, latitude: 40.61876, longitude: -111.77793, description: "Lower Gate" },
+  { id: 1, coordinates: [-111.65054, 40.65086], description: "Upper Gate" },
+  { id: 2, coordinates: [-111.77793, 40.61876], description: "Lower Gate" },
 ];
 
 // BCC Staging Areas data
 const stagingAreas = [
-  { id: 1, latitude: 40.64953, longitude: -111.66153, description: "Staging Area 10.1" },
-  { id: 2, latitude: 40.62199, longitude: -111.75057, description: "Staging Area 4.2" },
-  { id: 3, latitude: 40.63421, longitude: -111.71155, description: "Staging Area 7.0" },
-  { id: 4, latitude: 40.63639, longitude: -111.69962, description: "Staging Area 7.8" },
-  { id: 5, latitude: 40.64221, longitude: -111.68574, description: "Staging Area 8.4" },
-  { id: 6, latitude: 40.64356, longitude: -111.6754, description: "Staging Area 9.1" },
-  { id: 7, latitude: 40.64539, longitude: -111.66882, description: "Staging Area 9.5" },
+  { id: 1, coordinates: [-111.66153, 40.64953], description: "Staging Area 10.1" },
+  { id: 2, coordinates: [-111.75057, 40.62199], description: "Staging Area 4.2" },
+  { id: 3, coordinates: [-111.71155, 40.63421], description: "Staging Area 7.0" },
+  { id: 4, coordinates: [-111.69962, 40.63639], description: "Staging Area 7.8" },
+  { id: 5, coordinates: [-111.68574, 40.64221], description: "Staging Area 8.4" },
+  { id: 6, coordinates: [-111.6754, 40.64356], description: "Staging Area 9.1" },
+  { id: 7, coordinates: [-111.66882, 40.64539], description: "Staging Area 9.5" },
 ];
 
 export default function App() {
-  // Big Cottonwood Canyon area - centered on the data
-  const initialRegion = {
-    latitude: 40.635,
-    longitude: -111.71,
-    latitudeDelta: 0.08,
-    longitudeDelta: 0.08,
-  };
-
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
@@ -38,37 +33,51 @@ export default function App() {
         <Text style={styles.subtitle}>Mountain Avalanche Protection Operations</Text>
       </View>
 
-      {/* Map */}
-      <MapView
+      {/* MapLibre Map */}
+      <MapLibreGL.MapView
         style={styles.map}
-        initialRegion={initialRegion}
-        mapType="hybrid"
-        showsUserLocation={true}
-        showsCompass={true}
-        showsScale={true}
+        styleURL="https://demotiles.maplibre.org/style.json"
+        logoEnabled={false}
+        attributionEnabled={false}
       >
-        {/* Gates - Orange markers */}
+        <MapLibreGL.Camera
+          defaultSettings={{
+            centerCoordinate: [-111.71, 40.635],
+            zoomLevel: 12,
+          }}
+        />
+
+        {/* User location */}
+        <MapLibreGL.UserLocation visible={true} />
+
+        {/* Gates - Orange circles */}
         {gates.map(gate => (
-          <Marker
+          <MapLibreGL.PointAnnotation
             key={`gate-${gate.id}`}
-            coordinate={{ latitude: gate.latitude, longitude: gate.longitude }}
-            title="BCC Gate"
-            description={gate.description}
-            pinColor="orange"
-          />
+            id={`gate-${gate.id}`}
+            coordinate={gate.coordinates}
+            title={gate.description}
+          >
+            <View style={styles.gateMarker}>
+              <View style={styles.gateMarkerInner} />
+            </View>
+          </MapLibreGL.PointAnnotation>
         ))}
 
-        {/* Staging Areas - Blue markers */}
+        {/* Staging Areas - Blue circles */}
         {stagingAreas.map(area => (
-          <Marker
+          <MapLibreGL.PointAnnotation
             key={`staging-${area.id}`}
-            coordinate={{ latitude: area.latitude, longitude: area.longitude }}
-            title="Staging Area"
-            description={area.description}
-            pinColor="blue"
-          />
+            id={`staging-${area.id}`}
+            coordinate={area.coordinates}
+            title={area.description}
+          >
+            <View style={styles.stagingMarker}>
+              <View style={styles.stagingMarkerInner} />
+            </View>
+          </MapLibreGL.PointAnnotation>
         ))}
-      </MapView>
+      </MapLibreGL.MapView>
     </View>
   );
 }
@@ -96,5 +105,33 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
+  },
+  gateMarker: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(249, 115, 22, 0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  gateMarkerInner: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#f97316',
+  },
+  stagingMarker: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(59, 130, 246, 0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stagingMarkerInner: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#3b82f6',
   },
 });
