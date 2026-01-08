@@ -313,7 +313,7 @@ git push origin feature/your-feature-name
 - US Forest Service (USFS)
 - Alta Ski Area
 - Brighton Resort
-- Sandy City Police
+- Local agencies + personnel
 
 ---
 
