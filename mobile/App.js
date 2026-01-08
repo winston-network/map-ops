@@ -1,36 +1,65 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, View, Text } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Image } from 'react-native';
 import MapLibreGL from '@maplibre/maplibre-react-native';
+import { useState } from 'react';
+
+// Import GeoJSON data
+import avyPaths from './assets/layers/BCC_AvyPaths.geojson';
+import gatesData from './assets/layers/BCC_Gates.geojson';
+import stagingData from './assets/layers/BCC_Staging.geojson';
 
 // Initialize MapLibre (no access token needed for free tiles)
 MapLibreGL.setAccessToken(null);
 
-// BCC Gates data
-const gates = [
-  { id: 1, coordinates: [-111.65054, 40.65086], description: "Upper Gate" },
-  { id: 2, coordinates: [-111.77793, 40.61876], description: "Lower Gate" },
-];
-
-// BCC Staging Areas data
-const stagingAreas = [
-  { id: 1, coordinates: [-111.66153, 40.64953], description: "Staging Area 10.1" },
-  { id: 2, coordinates: [-111.75057, 40.62199], description: "Staging Area 4.2" },
-  { id: 3, coordinates: [-111.71155, 40.63421], description: "Staging Area 7.0" },
-  { id: 4, coordinates: [-111.69962, 40.63639], description: "Staging Area 7.8" },
-  { id: 5, coordinates: [-111.68574, 40.64221], description: "Staging Area 8.4" },
-  { id: 6, coordinates: [-111.6754, 40.64356], description: "Staging Area 9.1" },
-  { id: 7, coordinates: [-111.66882, 40.64539], description: "Staging Area 9.5" },
-];
-
 export default function App() {
+  // Layer visibility state
+  const [showAvyPaths, setShowAvyPaths] = useState(true);
+  const [showGates, setShowGates] = useState(true);
+  const [showStaging, setShowStaging] = useState(true);
+
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
 
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>MAP-OPS</Text>
-        <Text style={styles.subtitle}>Mountain Avalanche Protection Operations</Text>
+        <View style={styles.headerLeft}>
+          <Image
+            source={require('./assets/icons/snowflake.png')}
+            style={styles.logo}
+          />
+          <View>
+            <Text style={styles.title}>MAP-OPS</Text>
+            <Text style={styles.subtitle}>Mountain Avalanche Protection Operations</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Layer Toggle Bar */}
+      <View style={styles.toggleBar}>
+        <TouchableOpacity
+          style={[styles.toggleBtn, showAvyPaths && styles.toggleBtnActive]}
+          onPress={() => setShowAvyPaths(!showAvyPaths)}
+        >
+          <View style={[styles.toggleDot, { backgroundColor: '#ef4444' }]} />
+          <Text style={styles.toggleText}>Avy Paths</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.toggleBtn, showGates && styles.toggleBtnActive]}
+          onPress={() => setShowGates(!showGates)}
+        >
+          <View style={[styles.toggleDot, { backgroundColor: '#f97316' }]} />
+          <Text style={styles.toggleText}>Gates</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.toggleBtn, showStaging && styles.toggleBtnActive]}
+          onPress={() => setShowStaging(!showStaging)}
+        >
+          <View style={[styles.toggleDot, { backgroundColor: '#3b82f6' }]} />
+          <Text style={styles.toggleText}>Staging</Text>
+        </TouchableOpacity>
       </View>
 
       {/* MapLibre Map */}
@@ -50,13 +79,34 @@ export default function App() {
         {/* User location */}
         <MapLibreGL.UserLocation visible={true} />
 
-        {/* Gates - Orange circles */}
-        {gates.map(gate => (
+        {/* Avalanche Paths - Red polygons */}
+        {showAvyPaths && (
+          <MapLibreGL.ShapeSource id="avyPaths" shape={avyPaths}>
+            <MapLibreGL.FillLayer
+              id="avyPathsFill"
+              style={{
+                fillColor: '#ef4444',
+                fillOpacity: 0.3,
+              }}
+            />
+            <MapLibreGL.LineLayer
+              id="avyPathsLine"
+              style={{
+                lineColor: '#ef4444',
+                lineWidth: 2,
+                lineOpacity: 0.8,
+              }}
+            />
+          </MapLibreGL.ShapeSource>
+        )}
+
+        {/* Gates - Orange markers */}
+        {showGates && gatesData.features.map(feature => (
           <MapLibreGL.PointAnnotation
-            key={`gate-${gate.id}`}
-            id={`gate-${gate.id}`}
-            coordinate={gate.coordinates}
-            title={gate.description}
+            key={`gate-${feature.id}`}
+            id={`gate-${feature.id}`}
+            coordinate={feature.geometry.coordinates}
+            title={feature.properties.description}
           >
             <View style={styles.gateMarker}>
               <View style={styles.gateMarkerInner} />
@@ -64,13 +114,13 @@ export default function App() {
           </MapLibreGL.PointAnnotation>
         ))}
 
-        {/* Staging Areas - Blue circles */}
-        {stagingAreas.map(area => (
+        {/* Staging Areas - Blue markers */}
+        {showStaging && stagingData.features.map(feature => (
           <MapLibreGL.PointAnnotation
-            key={`staging-${area.id}`}
-            id={`staging-${area.id}`}
-            coordinate={area.coordinates}
-            title={area.description}
+            key={`staging-${feature.id}`}
+            id={`staging-${feature.id}`}
+            coordinate={feature.geometry.coordinates}
+            title={feature.properties.description}
           >
             <View style={styles.stagingMarker}>
               <View style={styles.stagingMarkerInner} />
@@ -78,6 +128,11 @@ export default function App() {
           </MapLibreGL.PointAnnotation>
         ))}
       </MapLibreGL.MapView>
+
+      {/* Disclaimer */}
+      <View style={styles.disclaimer}>
+        <Text style={styles.disclaimerText}>⚠ For conceptual testing only. Not for operational use.</Text>
+      </View>
     </View>
   );
 }
@@ -89,19 +144,62 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingTop: 50,
-    paddingBottom: 15,
-    paddingHorizontal: 20,
+    paddingBottom: 12,
+    paddingHorizontal: 16,
     backgroundColor: '#1a1a2e',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  logo: {
+    width: 36,
+    height: 36,
+    marginRight: 10,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 22,
+    fontWeight: '800',
     color: '#7ec8ff',
+    letterSpacing: 2,
   },
   subtitle: {
-    fontSize: 12,
+    fontSize: 10,
     color: '#ef4444',
-    marginTop: 2,
+    marginTop: 1,
+  },
+  toggleBar: {
+    flexDirection: 'row',
+    backgroundColor: '#252542',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    gap: 8,
+  },
+  toggleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1a1a2e',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    opacity: 0.5,
+  },
+  toggleBtnActive: {
+    opacity: 1,
+    backgroundColor: '#333355',
+  },
+  toggleDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 6,
+  },
+  toggleText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '600',
   },
   map: {
     flex: 1,
@@ -133,5 +231,15 @@ const styles = StyleSheet.create({
     height: 12,
     borderRadius: 6,
     backgroundColor: '#3b82f6',
+  },
+  disclaimer: {
+    backgroundColor: '#1a1a2e',
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  disclaimerText: {
+    color: '#ef4444',
+    fontSize: 11,
+    fontWeight: '600',
   },
 });
