@@ -14,23 +14,44 @@ const MapModule = (function() {
     let currentPosition = null;
     let isTracking = false;
     let pmtilesProtocol = null;
-    let activeBasemap = 'topo'; // Track which basemap is active
+    let activeBasemap = null; // Track which basemap is active
+    let BASEMAPS = {}; // Loaded from basemaps.json
 
-    // PMTiles basemap paths (no tile server needed!)
-    const BASEMAPS = {
-        topo: {
-            file: 'CC_shaded_topo_big.pmtiles',
-            name: 'Shaded Topo',
-            minzoom: 10,
-            maxzoom: 16
-        },
-        satellite: {
-            file: 'satellite.pmtiles',
-            name: 'Satellite',
-            minzoom: 0,
-            maxzoom: 19
+    /**
+     * Load basemaps configuration from basemaps.json
+     */
+    async function loadBasemapsConfig() {
+        try {
+            const response = await fetch('basemap/basemaps.json');
+            if (!response.ok) throw new Error('basemaps.json not found');
+            const data = await response.json();
+
+            // Convert array to object keyed by id
+            BASEMAPS = {};
+            data.basemaps.forEach(bm => {
+                BASEMAPS[bm.id] = {
+                    file: bm.file,
+                    name: bm.name,
+                    minzoom: bm.minzoom || 0,
+                    maxzoom: bm.maxzoom || 19
+                };
+                if (bm.default) {
+                    activeBasemap = bm.id;
+                }
+            });
+
+            // Default to first basemap if none marked as default
+            if (!activeBasemap && data.basemaps.length > 0) {
+                activeBasemap = data.basemaps[0].id;
+            }
+
+            console.log('Loaded basemaps:', Object.keys(BASEMAPS));
+            return true;
+        } catch (e) {
+            console.warn('Could not load basemaps.json:', e.message);
+            return false;
         }
-    };
+    }
 
     // Build PMTiles URL (needs full URL for protocol handler)
     function getPMTilesUrl(filename) {
@@ -40,41 +61,41 @@ const MapModule = (function() {
         return url;
     }
 
-    // Local PMTiles style - built dynamically to get correct URLs
+    // Local PMTiles style - built dynamically from loaded basemaps
     function buildPMTilesStyle() {
+        const sources = {};
+        const layers = [];
+
+        // Build sources and layers dynamically from BASEMAPS
+        Object.keys(BASEMAPS).forEach(id => {
+            const basemap = BASEMAPS[id];
+            const sourceId = `${id}-tiles`;
+
+            // Add source
+            sources[sourceId] = {
+                type: 'raster',
+                url: getPMTilesUrl(basemap.file),
+                tileSize: 256
+            };
+
+            // Add layer (active basemap visible, others hidden)
+            layers.push({
+                id: `${id}-layer`,
+                type: 'raster',
+                source: sourceId,
+                minzoom: basemap.minzoom || 0,
+                maxzoom: basemap.maxzoom || 19,
+                layout: {
+                    'visibility': id === activeBasemap ? 'visible' : 'none'
+                }
+            });
+        });
+
         return {
             version: 8,
             name: 'Local Basemaps',
-            sources: {
-                'topo-tiles': {
-                    type: 'raster',
-                    url: getPMTilesUrl(BASEMAPS.topo.file),
-                    tileSize: 256
-                },
-                'satellite-tiles': {
-                    type: 'raster',
-                    url: getPMTilesUrl(BASEMAPS.satellite.file),
-                    tileSize: 256
-                }
-            },
-            layers: [
-                {
-                    id: 'satellite-layer',
-                    type: 'raster',
-                    source: 'satellite-tiles',
-                    layout: {
-                        'visibility': 'none'
-                    }
-                },
-                {
-                    id: 'topo-layer',
-                    type: 'raster',
-                    source: 'topo-tiles',
-                    layout: {
-                        'visibility': 'visible'
-                    }
-                }
-            ]
+            sources: sources,
+            layers: layers
         };
     }
 
@@ -136,12 +157,25 @@ const MapModule = (function() {
     async function checkPMTilesAvailable() {
         try {
             // Check if at least one basemap is available
-            const topoResponse = await fetch(`basemap/${BASEMAPS.topo.file}`, { method: 'HEAD' }).catch(() => ({ ok: false }));
-            const satResponse = await fetch(`basemap/${BASEMAPS.satellite.file}`, { method: 'HEAD' }).catch(() => ({ ok: false }));
+            const basemapIds = Object.keys(BASEMAPS);
+            if (basemapIds.length === 0) {
+                console.log('No basemaps configured');
+                return false;
+            }
 
-            console.log(`Basemap availability - Topo: ${topoResponse.ok}, Satellite: ${satResponse.ok}`);
+            const results = await Promise.all(
+                basemapIds.map(async id => {
+                    const file = BASEMAPS[id].file;
+                    const response = await fetch(`basemap/${file}`, { method: 'HEAD' }).catch(() => ({ ok: false }));
+                    return { id, file, available: response.ok };
+                })
+            );
 
-            return topoResponse.ok || satResponse.ok;
+            results.forEach(r => {
+                console.log(`Basemap ${r.id} (${r.file}): ${r.available ? 'available' : 'not found'}`);
+            });
+
+            return results.some(r => r.available);
         } catch (e) {
             return false;
         }
@@ -205,7 +239,7 @@ const MapModule = (function() {
     /**
      * Initialize the map
      */
-    function init(containerId, options = {}) {
+    async function init(containerId, options = {}) {
         const defaultOptions = {
             center: [-111.7, 40.63], // Salt Lake City / Little Cottonwood area
             zoom: 12,
@@ -217,6 +251,9 @@ const MapModule = (function() {
 
         // Initialize PMTiles protocol (no SQL/tile server needed)
         initPMTilesProtocol();
+
+        // Load basemap configuration from basemaps.json
+        await loadBasemapsConfig();
 
         // Start with dark style, will switch to PMTiles if available
         map = new maplibregl.Map({

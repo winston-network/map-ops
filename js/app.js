@@ -635,6 +635,44 @@ const App = (function() {
     }
 
     /**
+     * Get the primary geometry type for a layer
+     */
+    function getLayerGeometryType(layer) {
+        if (!layer.data || !layer.data.features || layer.data.features.length === 0) {
+            return 'unknown';
+        }
+        const firstFeature = layer.data.features[0];
+        if (!firstFeature.geometry) return 'unknown';
+
+        const type = firstFeature.geometry.type;
+        if (type === 'Point' || type === 'MultiPoint') return 'point';
+        if (type === 'LineString' || type === 'MultiLineString') return 'line';
+        if (type === 'Polygon' || type === 'MultiPolygon') return 'polygon';
+        return 'unknown';
+    }
+
+    /**
+     * Build legend HTML based on geometry type
+     */
+    function buildLegendHtml(layer, geomType) {
+        if (geomType === 'point') {
+            if (layer.icon && layer.icon.url) {
+                return `<img src="${layer.icon.url}" class="legend-icon" alt="">`;
+            }
+            // Circle marker for points without icon
+            return `<span class="legend-point" style="background-color: ${layer.color}; border-color: #fff;"></span>`;
+        } else if (geomType === 'polygon') {
+            // Rectangle with fill and stroke
+            return `<span class="legend-polygon" style="background-color: ${layer.color}30; border-color: ${layer.color};"></span>`;
+        } else if (geomType === 'line') {
+            // Line
+            return `<span class="legend-line" style="background-color: ${layer.color};"></span>`;
+        }
+        // Fallback
+        return `<span class="legend-point" style="background-color: ${layer.color};"></span>`;
+    }
+
+    /**
      * Render layers list
      */
     function renderLayersList() {
@@ -662,12 +700,16 @@ const App = (function() {
                 </p>
             `;
         } else {
-            html += state.layers.map(layer => `
+            html += state.layers.map(layer => {
+                // Determine geometry type from data
+                const geomType = getLayerGeometryType(layer);
+                const legendHtml = buildLegendHtml(layer, geomType);
+
+                return `
                 <div class="layer-item ${layer.visible ? 'active' : ''}" data-layer-id="${layer.id}">
                     <div class="layer-checkbox"></div>
-                    <span class="layer-color" style="background-color: ${layer.color}"></span>
                     <span class="layer-name" title="${layer.name}">${layer.name}</span>
-                    <span class="layer-count">${layer.featureCount}</span>
+                    <span class="layer-legend">${legendHtml}</span>
                     <button class="layer-delete" title="Remove layer" data-action="delete">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <polyline points="3 6 5 6 21 6"></polyline>
@@ -675,7 +717,7 @@ const App = (function() {
                         </svg>
                     </button>
                 </div>
-            `).join('');
+            `}).join('');
         }
 
         elements.layersList.innerHTML = html;

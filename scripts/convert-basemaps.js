@@ -78,7 +78,78 @@ mbtilesFiles.forEach(file => {
   }
 });
 
+// Update basemaps.json manifest
+updateBasemapsManifest();
+
 console.log('Basemap conversion complete!');
 console.log(`\nOutput locations:`);
 console.log(`  Web:    ${WEB_OUTPUT_DIR}`);
 console.log(`  Mobile: ${MOBILE_OUTPUT_DIR}`);
+
+/**
+ * Update basemaps.json with all PMTiles files in the web directory
+ */
+function updateBasemapsManifest() {
+  const manifestPath = path.join(WEB_OUTPUT_DIR, 'basemaps.json');
+
+  // Load existing manifest if it exists
+  let existingBasemaps = {};
+  if (fs.existsSync(manifestPath)) {
+    try {
+      const data = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+      data.basemaps.forEach(bm => {
+        existingBasemaps[bm.file] = bm;
+      });
+    } catch (e) {
+      console.warn('Could not parse existing basemaps.json, starting fresh');
+    }
+  }
+
+  // Get all PMTiles files
+  const pmtilesFiles = fs.readdirSync(WEB_OUTPUT_DIR)
+    .filter(f => f.endsWith('.pmtiles'));
+
+  // Build new basemaps array
+  const basemaps = pmtilesFiles.map(file => {
+    // Check if we have existing settings for this file
+    const existing = existingBasemaps[file];
+
+    // Generate ID from filename (e.g., CC_shaded_topo.pmtiles -> topo)
+    let id = file.replace('.pmtiles', '')
+      .replace(/^CC_/, '')  // Remove CC_ prefix
+      .replace(/_\d+_\d+$/, '')  // Remove zoom suffixes like _12_14
+      .replace(/_/g, '-')  // Replace underscores with hyphens
+      .toLowerCase();
+
+    // Generate display name from filename
+    let name = file.replace('.pmtiles', '')
+      .replace(/^CC_/, '')
+      .replace(/_\d+_\d+$/, '')
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+
+    return {
+      id: existing?.id || id,
+      name: existing?.name || name,
+      file: file,
+      minzoom: existing?.minzoom || 0,
+      maxzoom: existing?.maxzoom || 19,
+      default: existing?.default || false
+    };
+  });
+
+  // Ensure at least one is marked as default
+  if (basemaps.length > 0 && !basemaps.some(b => b.default)) {
+    basemaps[0].default = true;
+  }
+
+  // Write updated manifest
+  const manifest = { basemaps };
+  fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
+
+  console.log(`\nUpdated basemaps.json with ${basemaps.length} basemap(s):`);
+  basemaps.forEach(bm => {
+    console.log(`  - ${bm.name} (${bm.file})${bm.default ? ' [default]' : ''}`);
+  });
+}

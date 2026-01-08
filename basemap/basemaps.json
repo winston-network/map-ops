@@ -1,0 +1,28 @@
+{
+  "basemaps": [
+    {
+      "id": "topo",
+      "name": "Shaded Topo",
+      "file": "CC_shaded_topo.pmtiles",
+      "minzoom": 10,
+      "maxzoom": 16,
+      "default": true
+    },
+    {
+      "id": "satellite",
+      "name": "CC Satellite",
+      "file": "CC_satellite_12_14.pmtiles",
+      "minzoom": 12,
+      "maxzoom": 14,
+      "default": false
+    },
+    {
+      "id": "bo-satellite",
+      "name": "Bo Satellite",
+      "file": "Bo_satellite_12_14.pmtiles",
+      "minzoom": 12,
+      "maxzoom": 14,
+      "default": false
+    }
+  ]
+}
