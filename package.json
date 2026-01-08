@@ -4,6 +4,7 @@
   "description": "MAP-OPS - Mountain Avalanche Protection Operations",
   "scripts": {
     "convert-basemaps": "node scripts/convert-basemaps.js",
+    "watch-basemaps": "node scripts/watch-basemaps.js",
     "serve": "http-server -p 8000 --cors",
     "start": "npm run serve"
   },
