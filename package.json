@@ -1,6 +1,6 @@
 {
   "name": "map-ops",
-  "version": "1.2.1",
+  "version": "1.3.0",
   "description": "MAP-OPS - Mountain Avalanche Protection Operations",
   "scripts": {
     "convert-basemaps": "node scripts/convert-basemaps.js",

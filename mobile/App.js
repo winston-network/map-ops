@@ -4,9 +4,9 @@ import MapLibreGL from '@maplibre/maplibre-react-native';
 import { useState } from 'react';
 
 // Import GeoJSON data
-import avyPaths from './assets/layers/BCC_AvyPaths.geojson';
-import gatesData from './assets/layers/BCC_Gates.geojson';
-import stagingData from './assets/layers/BCC_Staging.geojson';
+import avyPaths from './assets/layers/BCC_AvyPaths.json';
+import gatesData from './assets/layers/BCC_Gates.json';
+import stagingData from './assets/layers/BCC_Staging.json';
 
 // Initialize MapLibre (no access token needed for free tiles)
 MapLibreGL.setAccessToken(null);
