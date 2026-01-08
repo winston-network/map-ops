@@ -5,6 +5,7 @@
   "scripts": {
     "convert-basemaps": "node scripts/convert-basemaps.js",
     "watch-basemaps": "node scripts/watch-basemaps.js",
+    "sync-basemaps": "node scripts/sync-basemaps.js",
     "serve": "http-server -p 8000 --cors",
     "start": "npm run serve"
   },

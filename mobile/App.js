@@ -11,11 +11,48 @@ import stagingData from './assets/layers/BCC_Staging.geojson';
 // Initialize MapLibre (no access token needed for free tiles)
 MapLibreGL.setAccessToken(null);
 
+// Basemap styles (online sources for now - offline PMTiles coming soon)
+const BASEMAPS = {
+  topo: {
+    name: 'Topo',
+    styleURL: 'https://demotiles.maplibre.org/style.json',
+  },
+  satellite: {
+    name: 'Satellite',
+    // Using ESRI World Imagery (free for limited use)
+    styleURL: {
+      version: 8,
+      sources: {
+        'esri-satellite': {
+          type: 'raster',
+          tiles: [
+            'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+          ],
+          tileSize: 256,
+          attribution: '© Esri'
+        }
+      },
+      layers: [
+        {
+          id: 'esri-satellite-layer',
+          type: 'raster',
+          source: 'esri-satellite',
+          minzoom: 0,
+          maxzoom: 19
+        }
+      ]
+    }
+  }
+};
+
 export default function App() {
   // Layer visibility state
   const [showAvyPaths, setShowAvyPaths] = useState(true);
   const [showGates, setShowGates] = useState(true);
   const [showStaging, setShowStaging] = useState(true);
+  const [currentBasemap, setCurrentBasemap] = useState('satellite');
+
+  const basemapStyle = BASEMAPS[currentBasemap].styleURL;
 
   return (
     <View style={styles.container}>
@@ -35,14 +72,31 @@ export default function App() {
         </View>
       </View>
 
-      {/* Layer Toggle Bar */}
+      {/* Toggle Bar */}
       <View style={styles.toggleBar}>
+        {/* Basemap Toggle */}
+        <View style={styles.basemapToggle}>
+          <TouchableOpacity
+            style={[styles.basemapBtn, currentBasemap === 'topo' && styles.basemapBtnActive]}
+            onPress={() => setCurrentBasemap('topo')}
+          >
+            <Text style={styles.basemapText}>Topo</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.basemapBtn, currentBasemap === 'satellite' && styles.basemapBtnActive]}
+            onPress={() => setCurrentBasemap('satellite')}
+          >
+            <Text style={styles.basemapText}>Satellite</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Layer Toggles */}
         <TouchableOpacity
           style={[styles.toggleBtn, showAvyPaths && styles.toggleBtnActive]}
           onPress={() => setShowAvyPaths(!showAvyPaths)}
         >
           <View style={[styles.toggleDot, { backgroundColor: '#ef4444' }]} />
-          <Text style={styles.toggleText}>Avy Paths</Text>
+          <Text style={styles.toggleText}>Paths</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -64,8 +118,10 @@ export default function App() {
 
       {/* MapLibre Map */}
       <MapLibreGL.MapView
+        key={currentBasemap}
         style={styles.map}
-        styleURL="https://demotiles.maplibre.org/style.json"
+        styleURL={typeof basemapStyle === 'string' ? basemapStyle : undefined}
+        styleJSON={typeof basemapStyle === 'object' ? JSON.stringify(basemapStyle) : undefined}
         logoEnabled={false}
         attributionEnabled={false}
       >
@@ -175,14 +231,34 @@ const styles = StyleSheet.create({
     backgroundColor: '#252542',
     paddingVertical: 8,
     paddingHorizontal: 12,
-    gap: 8,
+    gap: 6,
+    alignItems: 'center',
+  },
+  basemapToggle: {
+    flexDirection: 'row',
+    backgroundColor: '#1a1a2e',
+    borderRadius: 16,
+    marginRight: 8,
+  },
+  basemapBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 16,
+  },
+  basemapBtnActive: {
+    backgroundColor: '#444466',
+  },
+  basemapText: {
+    color: '#ffffff',
+    fontSize: 11,
+    fontWeight: '600',
   },
   toggleBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#1a1a2e',
     paddingVertical: 6,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     borderRadius: 16,
     opacity: 0.5,
   },
@@ -191,14 +267,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#333355',
   },
   toggleDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginRight: 6,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 4,
   },
   toggleText: {
     color: '#ffffff',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
   },
   map: {

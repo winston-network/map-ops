@@ -21,6 +21,7 @@ const ROOT_DIR = path.join(__dirname, '..');
 const SOURCE_DIR = path.join(ROOT_DIR, 'basemap', 'source');
 const WEB_OUTPUT_DIR = path.join(ROOT_DIR, 'basemap');
 const MOBILE_OUTPUT_DIR = path.join(ROOT_DIR, 'mobile', 'assets', 'basemap');
+const PMTILES_BIN = path.join(ROOT_DIR, 'tools', 'pmtiles.exe');
 
 // Ensure output directories exist
 [WEB_OUTPUT_DIR, MOBILE_OUTPUT_DIR].forEach(dir => {
@@ -57,7 +58,7 @@ mbtilesFiles.forEach(file => {
   try {
     // Convert to PMTiles (output to web directory first)
     console.log(`  Converting to PMTiles...`);
-    execSync(`pmtiles convert "${inputPath}" "${webOutput}"`, { stdio: 'inherit' });
+    execSync(`"${PMTILES_BIN}" convert "${inputPath}" "${webOutput}"`, { stdio: 'inherit' });
 
     // Get output file size
     const outputSize = (fs.statSync(webOutput).size / 1024 / 1024).toFixed(2);
@@ -65,7 +66,7 @@ mbtilesFiles.forEach(file => {
 
     // Show tile info
     console.log(`  Tile info:`);
-    execSync(`pmtiles show "${webOutput}"`, { stdio: 'inherit' });
+    execSync(`"${PMTILES_BIN}" show "${webOutput}"`, { stdio: 'inherit' });
 
     // Copy to mobile directory
     console.log(`  Copying to mobile assets...`);

@@ -16,6 +16,7 @@ const ROOT_DIR = path.join(__dirname, '..');
 const SOURCE_DIR = path.join(ROOT_DIR, 'basemap', 'source');
 const WEB_OUTPUT_DIR = path.join(ROOT_DIR, 'basemap');
 const MOBILE_OUTPUT_DIR = path.join(ROOT_DIR, 'mobile', 'assets', 'basemap');
+const PMTILES_BIN = path.join(ROOT_DIR, 'tools', 'pmtiles.exe');
 
 // Ensure directories exist
 [SOURCE_DIR, WEB_OUTPUT_DIR, MOBILE_OUTPUT_DIR].forEach(dir => {
@@ -40,7 +41,7 @@ function convertFile(filename) {
       console.log(`\n🔄 Converting: ${filename} (${inputSize} MB)`);
 
       // Convert
-      execSync(`pmtiles convert "${inputPath}" "${webOutput}"`, { stdio: 'pipe' });
+      execSync(`"${PMTILES_BIN}" convert "${inputPath}" "${webOutput}"`, { stdio: 'pipe' });
 
       const outputSize = (fs.statSync(webOutput).size / 1024 / 1024).toFixed(2);
 
