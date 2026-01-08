@@ -8,9 +8,26 @@ Offline map application for avalanche control operations in Utah's Cottonwood Ca
 
 ## Current Status
 
-**Phase:** Web MVP Complete, Mobile App Next
+**Version:** 1.3.0
+**Phase:** Mobile App Ready for Testing
 
-**Latest Updates (Jan 5, 2026):**
+**Updates (Jan 7, 2026):**
+- Android preview build v1.3.0 available for testing
+- Dynamic basemap loading from `basemaps.json`
+- Layer legends (icons for points, rectangles for polygons)
+- Version display in sidebar (auto-loads from package.json)
+- Version bump script (`npm run bump patch|minor|major`)
+- Removed location info display from sidebar
+
+**Updates (Jan 6, 2026):**
+- Mobile app with MapLibre React Native
+- Basemap toggle (Topo/Satellite) in mobile
+- Layer toggles with visibility controls
+- Basemap conversion pipeline (MBTiles → PMTiles)
+- Scripts: `convert-basemaps`, `sync-basemaps`, `watch-basemaps`
+- EAS Build configured for Android and iOS
+
+**Updates (Jan 5, 2026):**
 - Custom shaded topo basemap (CC_shaded_topo_big.pmtiles, zoom 10-16)
 - Basemap toggle (Topo/Satellite) in sidebar
 - Big Cottonwood Canyon (BCC) layers added:
@@ -27,10 +44,9 @@ Offline map application for avalanche control operations in Utah's Cottonwood Ca
 - All branches merged to main, clean repo state
 
 **Next Steps:**
-1. Test React Native mobile app (when WiFi available)
-2. Test GPS location tracking on physical device
-3. EAS Build for iOS
-4. TestFlight beta distribution
+1. iOS build (waiting for Apple Developer approval)
+2. TestFlight beta distribution
+3. Field testing with GPS tracking
 
 ---
 
@@ -122,8 +138,20 @@ map_app/
 │   └── archive/            # Old LCC layers
 │
 ├── basemap/
-│   ├── CC_shaded_topo_big.pmtiles  # Topo basemap (zoom 10-16)
-│   └── satellite.pmtiles           # Satellite basemap
+│   ├── basemaps.json               # Basemap manifest (auto-updated)
+│   ├── CC_shaded_topo.pmtiles      # Topo basemap
+│   ├── CC_satellite_12_14.pmtiles  # CC Satellite basemap
+│   ├── Bo_satellite_12_14.pmtiles  # Bo Satellite basemap
+│   └── source/                     # MBTiles source files
+│
+├── scripts/
+│   ├── bump-version.js             # Version management
+│   ├── convert-basemaps.js         # MBTiles → PMTiles
+│   ├── sync-basemaps.js            # Sync web ↔ mobile
+│   └── watch-basemaps.js           # Auto-convert on change
+│
+├── tools/
+│   └── pmtiles.exe                 # PMTiles CLI binary
 │
 ├── images/
 │   ├── icons/
@@ -203,14 +231,21 @@ Open http://localhost:8000
 
 ## Converting Basemaps
 
-To convert MBTiles to PMTiles:
+Drop MBTiles files in `basemap/source/` then run:
 
 ```bash
-# Install pmtiles CLI (once)
-npm install -g pmtiles
+npm run convert-basemaps
+```
 
-# Convert
-pmtiles convert input.mbtiles output.pmtiles
+This will:
+1. Convert all MBTiles → PMTiles
+2. Copy to both web and mobile folders
+3. Auto-update `basemaps.json` manifest
+
+Other basemap commands:
+```bash
+npm run sync-basemaps     # Sync web ↔ mobile folders
+npm run watch-basemaps    # Auto-convert on file changes
 ```
 
 ---
@@ -247,14 +282,18 @@ git push origin feature/your-feature-name
 - [x] Dark theme UI with ice-blue accents
 - [x] Agency logos
 
-### Phase 2: React Native (NEXT)
+### Phase 2: React Native (COMPLETE)
 - [x] Expo project scaffolded
-- [ ] MapLibre React Native integration
-- [ ] Test on physical device
-- [ ] PMTiles bundling for mobile
+- [x] MapLibre React Native integration
+- [x] Basemap toggle in mobile app
+- [x] Layer toggles with visibility
+- [x] Bundled GeoJSON layers
+- [x] Android preview build (v1.3.0)
 
-### Phase 3: Distribution
-- [ ] EAS Build setup
+### Phase 3: Distribution (IN PROGRESS)
+- [x] EAS Build setup
+- [x] Android APK sharing
+- [ ] iOS build (waiting for Apple Developer)
 - [ ] TestFlight beta
 - [ ] App Store submission
 
