@@ -3,6 +3,7 @@
   "version": "1.3.0",
   "description": "MAP-OPS - Mountain Avalanche Protection Operations",
   "scripts": {
+    "bump": "node scripts/bump-version.js",
     "convert-basemaps": "node scripts/convert-basemaps.js",
     "watch-basemaps": "node scripts/watch-basemaps.js",
     "sync-basemaps": "node scripts/sync-basemaps.js",

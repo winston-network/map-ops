@@ -284,6 +284,15 @@ body {
     height: 18px;
 }
 
+.version-display {
+    margin-left: auto;
+    font-size: 0.7rem;
+    font-weight: 400;
+    color: var(--text-muted);
+    text-transform: none;
+    letter-spacing: 0;
+}
+
 /* Search Box */
 .search-box {
     position: relative;

@@ -25,6 +25,9 @@ const App = (function() {
         // Cache DOM elements
         cacheElements();
 
+        // Load and display version
+        loadVersion();
+
         // Initialize database
         await DataHandler.initDB();
 
@@ -50,6 +53,24 @@ const App = (function() {
         updateSidebarState();
 
         console.log('MAPS-OPS initialized');
+    }
+
+    /**
+     * Load version from package.json and display it
+     */
+    async function loadVersion() {
+        try {
+            const response = await fetch('package.json');
+            if (response.ok) {
+                const pkg = await response.json();
+                const versionEl = document.getElementById('version-display');
+                if (versionEl && pkg.version) {
+                    versionEl.textContent = `v${pkg.version}`;
+                }
+            }
+        } catch (e) {
+            console.warn('Could not load version:', e.message);
+        }
     }
 
     /**
