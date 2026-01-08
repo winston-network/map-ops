@@ -19,6 +19,9 @@ Offline map application for avalanche control operations in Utah's Cottonwood Ca
 - Version bump script (`npm run bump patch|minor|major`)
 - Removed location info display from sidebar
 
+- <img width="1225" height="948" alt="image" src="https://github.com/user-attachments/assets/15266458-f8de-4668-bc54-61272e753e25" />
+
+
 **Updates (Jan 6, 2026):**
 - Mobile app with MapLibre React Native
 - Basemap toggle (Topo/Satellite) in mobile
