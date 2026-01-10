@@ -105,29 +105,29 @@ export default function App() {
           </TouchableOpacity>
         </View>
 
-        {/* Layer Toggles */}
+        {/* Layer Toggles - icons on right side */}
         <TouchableOpacity
           style={[styles.toggleBtn, showAvyPaths && styles.toggleBtnActive]}
           onPress={() => setShowAvyPaths(!showAvyPaths)}
         >
-          <View style={[styles.toggleRect, { backgroundColor: '#ef4444' }]} />
           <Text style={styles.toggleText}>Paths</Text>
+          <View style={[styles.toggleRect, { backgroundColor: '#ef4444' }]} />
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.toggleBtn, showGates && styles.toggleBtnActive]}
           onPress={() => setShowGates(!showGates)}
         >
-          <Image source={require('./assets/icons/BCC_Gates.png')} style={styles.toggleIcon} />
           <Text style={styles.toggleText}>Gates</Text>
+          <Image source={require('./assets/icons/BCC_Gates.png')} style={styles.toggleIcon} />
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.toggleBtn, showStaging && styles.toggleBtnActive]}
           onPress={() => setShowStaging(!showStaging)}
         >
-          <Image source={require('./assets/icons/BCC_Staging.png')} style={styles.toggleIcon} />
           <Text style={styles.toggleText}>Staging</Text>
+          <Image source={require('./assets/icons/BCC_Staging.png')} style={styles.toggleIcon} />
         </TouchableOpacity>
       </View>
 
@@ -198,9 +198,15 @@ export default function App() {
         ))}
       </MapLibreGL.MapView>
 
-      {/* Disclaimer */}
-      <View style={styles.disclaimer}>
+      {/* Footer */}
+      <View style={styles.footer}>
         <Text style={styles.disclaimerText}>⚠ For conceptual testing only. Not for operational use.</Text>
+        <View style={styles.logoRow}>
+          <Image source={require('./assets/logos/usfs.png')} style={styles.footerLogo} />
+          <Image source={require('./assets/logos/udot.png')} style={styles.footerLogo} />
+          <Image source={require('./assets/logos/alta.png')} style={styles.footerLogo} />
+          <Image source={require('./assets/logos/brighton.png')} style={styles.footerLogo} />
+        </View>
       </View>
     </View>
   );
@@ -304,13 +310,13 @@ const styles = StyleSheet.create({
   toggleIcon: {
     width: 16,
     height: 16,
-    marginRight: 4,
+    marginLeft: 4,
   },
   toggleRect: {
     width: 14,
     height: 10,
     borderRadius: 2,
-    marginRight: 4,
+    marginLeft: 4,
   },
   toggleText: {
     color: '#ffffff',
@@ -324,14 +330,27 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
   },
-  disclaimer: {
+  footer: {
     backgroundColor: '#1a1a2e',
     paddingVertical: 8,
+    paddingHorizontal: 16,
     alignItems: 'center',
   },
   disclaimerText: {
     color: '#ef4444',
     fontSize: 11,
     fontWeight: '600',
+    marginBottom: 8,
+  },
+  logoRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 16,
+  },
+  footerLogo: {
+    width: 32,
+    height: 32,
+    resizeMode: 'contain',
   },
 });
