@@ -15,12 +15,34 @@ MapLibreGL.setAccessToken(null);
 const BASEMAPS = {
   topo: {
     name: 'Topo',
-    styleURL: 'https://demotiles.maplibre.org/style.json',
+    style: {
+      version: 8,
+      sources: {
+        'opentopomap': {
+          type: 'raster',
+          tiles: [
+            'https://a.tile.opentopomap.org/{z}/{x}/{y}.png',
+            'https://b.tile.opentopomap.org/{z}/{x}/{y}.png',
+            'https://c.tile.opentopomap.org/{z}/{x}/{y}.png'
+          ],
+          tileSize: 256,
+          attribution: '© OpenTopoMap contributors'
+        }
+      },
+      layers: [
+        {
+          id: 'opentopomap-layer',
+          type: 'raster',
+          source: 'opentopomap',
+          minzoom: 0,
+          maxzoom: 17
+        }
+      ]
+    }
   },
   satellite: {
     name: 'Satellite',
-    // Using ESRI World Imagery (free for limited use)
-    styleURL: {
+    style: {
       version: 8,
       sources: {
         'esri-satellite': {
@@ -52,7 +74,7 @@ export default function App() {
   const [showStaging, setShowStaging] = useState(true);
   const [currentBasemap, setCurrentBasemap] = useState('satellite');
 
-  const basemapStyle = BASEMAPS[currentBasemap].styleURL;
+  const basemapStyle = BASEMAPS[currentBasemap].style;
 
   return (
     <View style={styles.container}>
@@ -95,7 +117,7 @@ export default function App() {
           style={[styles.toggleBtn, showAvyPaths && styles.toggleBtnActive]}
           onPress={() => setShowAvyPaths(!showAvyPaths)}
         >
-          <View style={[styles.toggleDot, { backgroundColor: '#ef4444' }]} />
+          <View style={[styles.toggleRect, { backgroundColor: '#ef4444' }]} />
           <Text style={styles.toggleText}>Paths</Text>
         </TouchableOpacity>
 
@@ -103,7 +125,7 @@ export default function App() {
           style={[styles.toggleBtn, showGates && styles.toggleBtnActive]}
           onPress={() => setShowGates(!showGates)}
         >
-          <View style={[styles.toggleDot, { backgroundColor: '#f97316' }]} />
+          <Image source={require('./assets/icons/BCC_Gates.png')} style={styles.toggleIcon} />
           <Text style={styles.toggleText}>Gates</Text>
         </TouchableOpacity>
 
@@ -111,7 +133,7 @@ export default function App() {
           style={[styles.toggleBtn, showStaging && styles.toggleBtnActive]}
           onPress={() => setShowStaging(!showStaging)}
         >
-          <View style={[styles.toggleDot, { backgroundColor: '#3b82f6' }]} />
+          <Image source={require('./assets/icons/BCC_Staging.png')} style={styles.toggleIcon} />
           <Text style={styles.toggleText}>Staging</Text>
         </TouchableOpacity>
       </View>
@@ -120,8 +142,7 @@ export default function App() {
       <MapLibreGL.MapView
         key={currentBasemap}
         style={styles.map}
-        styleURL={typeof basemapStyle === 'string' ? basemapStyle : undefined}
-        styleJSON={typeof basemapStyle === 'object' ? JSON.stringify(basemapStyle) : undefined}
+        styleJSON={JSON.stringify(basemapStyle)}
         logoEnabled={false}
         attributionEnabled={false}
       >
@@ -156,7 +177,7 @@ export default function App() {
           </MapLibreGL.ShapeSource>
         )}
 
-        {/* Gates - Orange markers */}
+        {/* Gates - Custom icon markers */}
         {showGates && gatesData.features.map(feature => (
           <MapLibreGL.PointAnnotation
             key={`gate-${feature.id}`}
@@ -164,13 +185,11 @@ export default function App() {
             coordinate={feature.geometry.coordinates}
             title={feature.properties.description}
           >
-            <View style={styles.gateMarker}>
-              <View style={styles.gateMarkerInner} />
-            </View>
+            <Image source={require('./assets/icons/BCC_Gates.png')} style={styles.mapIcon} />
           </MapLibreGL.PointAnnotation>
         ))}
 
-        {/* Staging Areas - Blue markers */}
+        {/* Staging Areas - Custom icon markers */}
         {showStaging && stagingData.features.map(feature => (
           <MapLibreGL.PointAnnotation
             key={`staging-${feature.id}`}
@@ -178,9 +197,7 @@ export default function App() {
             coordinate={feature.geometry.coordinates}
             title={feature.properties.description}
           >
-            <View style={styles.stagingMarker}>
-              <View style={styles.stagingMarkerInner} />
-            </View>
+            <Image source={require('./assets/icons/BCC_Staging.png')} style={styles.mapIcon} />
           </MapLibreGL.PointAnnotation>
         ))}
       </MapLibreGL.MapView>
@@ -220,11 +237,17 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#7ec8ff',
     letterSpacing: 2,
+    textShadowColor: 'rgba(126, 200, 255, 0.8)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10,
   },
   subtitle: {
     fontSize: 10,
     color: '#ef4444',
     marginTop: 1,
+    textShadowColor: 'rgba(239, 68, 68, 0.6)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 6,
   },
   toggleBar: {
     flexDirection: 'row',
@@ -266,10 +289,15 @@ const styles = StyleSheet.create({
     opacity: 1,
     backgroundColor: '#333355',
   },
-  toggleDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+  toggleIcon: {
+    width: 16,
+    height: 16,
+    marginRight: 4,
+  },
+  toggleRect: {
+    width: 14,
+    height: 10,
+    borderRadius: 2,
     marginRight: 4,
   },
   toggleText: {
@@ -280,33 +308,9 @@ const styles = StyleSheet.create({
   map: {
     flex: 1,
   },
-  gateMarker: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgba(249, 115, 22, 0.3)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  gateMarkerInner: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#f97316',
-  },
-  stagingMarker: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgba(59, 130, 246, 0.3)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stagingMarkerInner: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#3b82f6',
+  mapIcon: {
+    width: 32,
+    height: 32,
   },
   disclaimer: {
     backgroundColor: '#1a1a2e',
