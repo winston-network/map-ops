@@ -3,7 +3,6 @@ import { StyleSheet, View, Text, TouchableOpacity, Image, ActivityIndicator } fr
 import MapLibreGL from '@maplibre/maplibre-react-native';
 import { useState, useEffect } from 'react';
 import * as FileSystem from 'expo-file-system';
-import { Asset } from 'expo-asset';
 
 // Import GeoJSON data
 import avyPaths from './assets/layers/BCC_AvyPaths.json';
@@ -45,16 +44,15 @@ const layerBounds = calculateBounds([avyPaths, gatesData, stagingData]);
 MapLibreGL.setAccessToken(null);
 
 // PMTiles basemap files (bundled with app for offline use)
+// Using Expo Asset module IDs - files must be in assets/basemap/
 const PMTILES_BASEMAPS = {
   topo: {
     name: 'Topo',
     file: 'CC_shaded_topo.pmtiles',
-    asset: require('./assets/basemap/CC_shaded_topo.pmtiles'),
   },
   satellite: {
     name: 'Satellite',
     file: 'CC_satellite_12_14.pmtiles',
-    asset: require('./assets/basemap/CC_satellite_12_14.pmtiles'),
   }
 };
 
@@ -97,43 +95,37 @@ export default function App() {
   const [pmtilesPaths, setPmtilesPaths] = useState({});
   const [loadingMessage, setLoadingMessage] = useState('Loading offline maps...');
 
-  // Copy PMTiles files to document directory on first launch
+  // Check for PMTiles files in document directory
   useEffect(() => {
     async function setupPMTiles() {
       try {
         const paths = {};
+        let foundLocal = false;
 
         for (const [key, basemap] of Object.entries(PMTILES_BASEMAPS)) {
-          setLoadingMessage(`Loading ${basemap.name} basemap...`);
+          setLoadingMessage(`Checking ${basemap.name} basemap...`);
 
+          // Check document directory for pmtiles files
           const destPath = `${FileSystem.documentDirectory}${basemap.file}`;
-
-          // Check if already copied
           const fileInfo = await FileSystem.getInfoAsync(destPath);
 
-          if (!fileInfo.exists) {
-            // Load asset and copy to document directory
-            const asset = Asset.fromModule(basemap.asset);
-            await asset.downloadAsync();
-
-            if (asset.localUri) {
-              await FileSystem.copyAsync({
-                from: asset.localUri,
-                to: destPath,
-              });
-            }
+          if (fileInfo.exists) {
+            paths[key] = destPath;
+            foundLocal = true;
+            console.log(`Found local PMTiles: ${basemap.file}`);
+          } else {
+            console.log(`PMTiles not found locally: ${basemap.file}`);
           }
-
-          paths[key] = destPath;
         }
 
-        setPmtilesPaths(paths);
+        if (foundLocal) {
+          setPmtilesPaths(paths);
+        }
         setPmtilesReady(true);
         setLoadingMessage('');
       } catch (error) {
-        console.error('Error setting up PMTiles:', error);
-        setLoadingMessage('Error loading offline maps. Using online fallback.');
-        // Continue with online fallback
+        console.error('Error checking PMTiles:', error);
+        setLoadingMessage('');
         setPmtilesReady(true);
       }
     }
