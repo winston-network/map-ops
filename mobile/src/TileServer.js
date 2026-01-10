@@ -1,14 +1,14 @@
 /**
- * Local Tile Server for MBTiles - Wasatch App Architecture
+ * Tile Extractor for MBTiles - File-based approach
  *
- * How it works (mimics Wasatch Backcountry Skiing app):
+ * How it works:
  * 1. Read tiles from MBTiles (SQLite) database
  * 2. Extract tiles to individual files on disk (z/x/y.png)
- * 3. Serve tile directory with static file server
- * 4. MapLibre requests tiles as static files
+ * 3. MapLibre reads tiles directly from filesystem via file:// URLs
+ *
+ * No HTTP server needed - simplest possible approach!
  */
 
-import StaticServer from '@dr.pogodin/react-native-static-server';
 import SQLite from 'react-native-sqlite-storage';
 import RNFS from 'react-native-fs';
 
@@ -16,15 +16,13 @@ SQLite.enablePromise(true);
 
 class TileServer {
   constructor() {
-    this.server = null;
-    this.port = 9876;
     this.isRunning = false;
     this.tilesDir = `${RNFS.DocumentDirectoryPath}/tiles`;
+    this.extractedDbs = new Set();
   }
 
   /**
    * Extract tiles from MBTiles database to individual files
-   * This is the key step - static server can only serve files, not database queries
    */
   async extractTiles(dbName, mbtilesPath, onProgress) {
     const tileDir = `${this.tilesDir}/${dbName}`;
@@ -34,17 +32,21 @@ class TileServer {
     const markerExists = await RNFS.exists(markerFile);
     if (markerExists) {
       console.log(`${dbName}: tiles already extracted`);
+      this.extractedDbs.add(dbName);
       return true;
     }
 
     console.log(`${dbName}: extracting tiles from ${mbtilesPath}`);
 
     try {
-      // Open the MBTiles database
+      // Copy MBTiles to accessible location first
+      const dbCopyPath = `${RNFS.DocumentDirectoryPath}/${dbName}_temp.db`;
+      await RNFS.copyFile(mbtilesPath, dbCopyPath);
+
+      // Open the copied database
       const db = await SQLite.openDatabase({
-        name: mbtilesPath,
-        location: 'default',
-        createFromLocation: mbtilesPath,
+        name: `${dbName}_temp.db`,
+        location: 'Documents',
       });
 
       // Get total tile count for progress
@@ -59,10 +61,17 @@ class TileServer {
       }
 
       // Create base directory
+      const baseDirExists = await RNFS.exists(this.tilesDir);
+      if (!baseDirExists) {
+        await RNFS.mkdir(this.tilesDir);
+      }
       await RNFS.mkdir(tileDir);
 
+      // Track created directories to avoid repeated checks
+      const createdDirs = new Set();
+
       // Extract tiles in batches
-      const batchSize = 500;
+      const batchSize = 200;
       let extracted = 0;
       let offset = 0;
 
@@ -84,20 +93,25 @@ class TileServer {
           const zDir = `${tileDir}/${z}`;
           const xDir = `${zDir}/${x}`;
 
-          // Ensure directories exist
-          const zExists = await RNFS.exists(zDir);
-          if (!zExists) await RNFS.mkdir(zDir);
+          // Ensure directories exist (with caching)
+          if (!createdDirs.has(zDir)) {
+            const zExists = await RNFS.exists(zDir);
+            if (!zExists) await RNFS.mkdir(zDir);
+            createdDirs.add(zDir);
+          }
 
-          const xExists = await RNFS.exists(xDir);
-          if (!xExists) await RNFS.mkdir(xDir);
+          if (!createdDirs.has(xDir)) {
+            const xExists = await RNFS.exists(xDir);
+            if (!xExists) await RNFS.mkdir(xDir);
+            createdDirs.add(xDir);
+          }
 
-          // Write tile file (y.png)
+          // Write tile file
           const tilePath = `${xDir}/${xyzY}.png`;
-
-          // tile_data should be base64 encoded blob from SQLite
           const tileData = row.tile_data;
+
           if (tileData) {
-            // Write as base64
+            // SQLite returns blob as base64 string
             await RNFS.writeFile(tilePath, tileData, 'base64');
           }
 
@@ -109,13 +123,21 @@ class TileServer {
         // Report progress
         const progress = extracted / totalTiles;
         if (onProgress) onProgress(progress);
-        console.log(`${dbName}: extracted ${extracted}/${totalTiles} (${Math.round(progress * 100)}%)`);
+
+        if (extracted % 1000 === 0 || extracted === totalTiles) {
+          console.log(`${dbName}: extracted ${extracted}/${totalTiles} (${Math.round(progress * 100)}%)`);
+        }
       }
 
       // Create marker file to indicate extraction is complete
       await RNFS.writeFile(markerFile, new Date().toISOString(), 'utf8');
 
       await db.close();
+
+      // Clean up temp database
+      await RNFS.unlink(dbCopyPath);
+
+      this.extractedDbs.add(dbName);
       console.log(`${dbName}: extraction complete!`);
       return true;
 
@@ -126,41 +148,21 @@ class TileServer {
   }
 
   /**
-   * Start the static file server
+   * "Start" the server (just marks as ready - no actual server needed)
    */
   async start() {
-    if (this.isRunning) {
-      console.log('Tile server already running');
-      return true;
+    // Ensure tiles directory exists
+    const dirExists = await RNFS.exists(this.tilesDir);
+    if (!dirExists) {
+      await RNFS.mkdir(this.tilesDir);
     }
-
-    try {
-      // Ensure tiles directory exists
-      const dirExists = await RNFS.exists(this.tilesDir);
-      if (!dirExists) {
-        await RNFS.mkdir(this.tilesDir);
-      }
-
-      // Create static server serving the tiles directory
-      this.server = new StaticServer(this.port, this.tilesDir, {
-        localOnly: true,
-        keepAlive: true,
-      });
-
-      const origin = await this.server.start();
-      this.isRunning = true;
-      console.log(`Static tile server running at ${origin}`);
-      return true;
-
-    } catch (error) {
-      console.error('Failed to start tile server:', error);
-      return false;
-    }
+    this.isRunning = true;
+    console.log(`Tile extractor ready. Tiles dir: ${this.tilesDir}`);
+    return true;
   }
 
   /**
    * Open an MBTiles database and extract tiles
-   * Returns true when tiles are ready to serve
    */
   async openDatabase(name, filePath, onProgress) {
     try {
@@ -177,7 +179,7 @@ class TileServer {
         return false;
       }
 
-      console.log(`${name}: ready to serve`);
+      console.log(`${name}: ready to serve via file://`);
       return true;
 
     } catch (error) {
@@ -188,22 +190,25 @@ class TileServer {
 
   /**
    * Get tile URL template for MapLibre
-   * Static server serves files at: http://localhost:PORT/dbname/z/x/y.png
+   * Uses file:// protocol to read directly from filesystem
    */
   getTileUrl(dbName) {
-    return `http://localhost:${this.port}/${dbName}/{z}/{x}/{y}.png`;
+    return `file://${this.tilesDir}/${dbName}/{z}/{x}/{y}.png`;
   }
 
   /**
-   * Stop the server
+   * Get the port (for compatibility - not actually used)
+   */
+  get port() {
+    return 0; // No server
+  }
+
+  /**
+   * Stop (no-op since no server)
    */
   async stop() {
-    if (this.server) {
-      await this.server.stop();
-      this.server = null;
-    }
     this.isRunning = false;
-    console.log('Tile server stopped');
+    console.log('Tile extractor stopped');
   }
 
   /**
@@ -215,6 +220,7 @@ class TileServer {
       if (exists) {
         await RNFS.unlink(this.tilesDir);
       }
+      this.extractedDbs.clear();
       console.log('Tile cache cleared');
     } catch (error) {
       console.error('Failed to clear tile cache:', error);
