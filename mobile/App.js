@@ -66,13 +66,17 @@ const ONLINE_FALLBACK = 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style
 
 // Build a MapLibre style using local PMTiles file
 function buildPMTilesStyle(pmtilesPath) {
+  // Remove file:// prefix if present, pmtiles:// protocol adds its own
+  const cleanPath = pmtilesPath.replace('file://', '');
+  console.log('Building PMTiles style with path:', cleanPath);
+
   return {
     version: 8,
     name: 'Offline Basemap',
     sources: {
       'offline-basemap': {
         type: 'raster',
-        url: `pmtiles://${pmtilesPath}`,
+        url: `pmtiles://${cleanPath}`,
         tileSize: 256,
       }
     },
@@ -103,21 +107,27 @@ export default function App() {
   // Download PMTiles files on first launch for offline use
   useEffect(() => {
     async function setupPMTiles() {
+      console.log('=== Starting PMTiles setup ===');
+      console.log('Document directory:', FileSystem.documentDirectory);
+
       try {
         const paths = {};
 
         for (const [key, basemap] of Object.entries(PMTILES_BASEMAPS)) {
           const destPath = `${FileSystem.documentDirectory}${basemap.file}`;
-          const fileInfo = await FileSystem.getInfoAsync(destPath);
+          console.log(`Checking for ${basemap.file} at: ${destPath}`);
 
-          if (fileInfo.exists) {
-            // Already downloaded
+          const fileInfo = await FileSystem.getInfoAsync(destPath);
+          console.log(`File info for ${basemap.file}:`, JSON.stringify(fileInfo));
+
+          if (fileInfo.exists && fileInfo.size > 1000000) {
+            // Already downloaded (and file is > 1MB, so not empty/corrupt)
             paths[key] = destPath;
-            console.log(`PMTiles already downloaded: ${basemap.file}`);
+            console.log(`PMTiles already downloaded: ${basemap.file} (${fileInfo.size} bytes)`);
           } else {
             // Download from GitHub Releases
-            setLoadingMessage(`Downloading ${basemap.name} (${basemap.size})...`);
-            console.log(`Downloading PMTiles: ${basemap.url}`);
+            setLoadingMessage(`Downloading ${basemap.name} (${basemap.size})...\nThis only happens once.`);
+            console.log(`Starting download: ${basemap.url}`);
 
             try {
               const downloadResult = await FileSystem.downloadAsync(
@@ -125,24 +135,33 @@ export default function App() {
                 destPath
               );
 
+              console.log(`Download result for ${basemap.file}:`, JSON.stringify(downloadResult));
+
               if (downloadResult.status === 200) {
-                paths[key] = destPath;
-                console.log(`Downloaded: ${basemap.file}`);
+                const newFileInfo = await FileSystem.getInfoAsync(destPath);
+                console.log(`Downloaded file size: ${newFileInfo.size} bytes`);
+
+                if (newFileInfo.size > 1000000) {
+                  paths[key] = destPath;
+                  console.log(`Successfully downloaded: ${basemap.file}`);
+                } else {
+                  console.error(`Downloaded file too small: ${newFileInfo.size} bytes`);
+                }
               } else {
-                console.error(`Download failed for ${basemap.file}: ${downloadResult.status}`);
+                console.error(`Download failed for ${basemap.file}: status ${downloadResult.status}`);
               }
             } catch (downloadError) {
-              console.error(`Download error for ${basemap.file}:`, downloadError);
-              // Continue without this basemap
+              console.error(`Download error for ${basemap.file}:`, downloadError.message);
             }
           }
         }
 
+        console.log('Final PMTiles paths:', JSON.stringify(paths));
         setPmtilesPaths(paths);
         setPmtilesReady(true);
         setLoadingMessage('');
       } catch (error) {
-        console.error('Error setting up PMTiles:', error);
+        console.error('Error setting up PMTiles:', error.message);
         setLoadingMessage('');
         setPmtilesReady(true);
       }
@@ -206,7 +225,7 @@ export default function App() {
           onPress={() => setShowAvyPaths(!showAvyPaths)}
         >
           <Text style={styles.toggleText}>Paths</Text>
-          <View style={[styles.toggleRect, { backgroundColor: '#ef4444' }]} />
+          <View style={[styles.toggleRect, { backgroundColor: '#7ec8ff' }]} />
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -256,20 +275,20 @@ export default function App() {
         {/* User location */}
         <MapLibreGL.UserLocation visible={true} />
 
-        {/* Avalanche Paths - Red polygons */}
+        {/* Avalanche Paths - Light blue polygons */}
         {showAvyPaths && (
           <MapLibreGL.ShapeSource id="avyPaths" shape={avyPaths}>
             <MapLibreGL.FillLayer
               id="avyPathsFill"
               style={{
-                fillColor: '#ef4444',
+                fillColor: '#7ec8ff',
                 fillOpacity: 0.3,
               }}
             />
             <MapLibreGL.LineLayer
               id="avyPathsLine"
               style={{
-                lineColor: '#ef4444',
+                lineColor: '#7ec8ff',
                 lineWidth: 2,
                 lineOpacity: 0.8,
               }}
