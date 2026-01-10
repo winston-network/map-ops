@@ -59,30 +59,70 @@ function Snowflake({ delay, duration, startX, size }) {
   );
 }
 
-// Snow accumulation component
-function SnowAccumulation({ progress }) {
-  // Height grows based on download progress (0 to ~100px)
-  const height = Math.min(progress * 150, 150);
+// Snow-filled text progress component
+function SnowFillText({ progress, text }) {
+  const fillPercent = Math.min(progress * 100, 100);
 
   return (
-    <View style={{
-      position: 'absolute',
-      bottom: 0,
-      left: 0,
-      right: 0,
-      height: height,
-      backgroundColor: '#e8f4ff',
-      borderTopLeftRadius: height > 20 ? 100 : 0,
-      borderTopRightRadius: height > 20 ? 100 : 0,
-    }}>
-      {/* Snow bumps */}
-      {height > 30 && (
-        <>
-          <View style={{ position: 'absolute', top: -15, left: '20%', width: 60, height: 30, backgroundColor: '#e8f4ff', borderRadius: 30 }} />
-          <View style={{ position: 'absolute', top: -10, left: '50%', width: 80, height: 25, backgroundColor: '#e8f4ff', borderRadius: 25 }} />
-          <View style={{ position: 'absolute', top: -12, left: '75%', width: 50, height: 28, backgroundColor: '#e8f4ff', borderRadius: 28 }} />
-        </>
-      )}
+    <View style={{ position: 'relative', height: 80, justifyContent: 'center' }}>
+      {/* Background text - outline/empty look */}
+      <Text style={{
+        fontSize: 52,
+        fontWeight: '900',
+        color: 'transparent',
+        letterSpacing: 6,
+        textAlign: 'center',
+        textShadowColor: '#7ec8ff',
+        textShadowOffset: { width: 0, height: 0 },
+        textShadowRadius: 1,
+        // Create outline effect with multiple shadows
+      }}>
+        {text}
+      </Text>
+
+      {/* Outline layer */}
+      <Text style={{
+        position: 'absolute',
+        width: '100%',
+        fontSize: 52,
+        fontWeight: '900',
+        color: 'transparent',
+        letterSpacing: 6,
+        textAlign: 'center',
+        textDecorationLine: 'none',
+        // Stroke effect using text shadow
+        textShadowColor: '#3a5f7d',
+        textShadowOffset: { width: 1, height: 1 },
+        textShadowRadius: 2,
+      }}>
+        {text}
+      </Text>
+
+      {/* Fill layer - clips from bottom up */}
+      <View style={{
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: `${fillPercent}%`,
+        overflow: 'hidden',
+      }}>
+        <Text style={{
+          position: 'absolute',
+          bottom: 0,
+          width: '100%',
+          fontSize: 52,
+          fontWeight: '900',
+          color: '#ffffff',
+          letterSpacing: 6,
+          textAlign: 'center',
+          textShadowColor: 'rgba(255, 255, 255, 0.8)',
+          textShadowOffset: { width: 0, height: 0 },
+          textShadowRadius: 10,
+        }}>
+          {text}
+        </Text>
+      </View>
     </View>
   );
 }
@@ -372,16 +412,12 @@ export default function App() {
             />
           ))}
 
-          {/* Snow accumulation at bottom */}
-          <SnowAccumulation progress={downloadProgress} />
-
-          {/* Loading text */}
+          {/* Centered content */}
           <View style={styles.loadingContent}>
-            <Image
-              source={require('./assets/icons/snowflake.png')}
-              style={styles.loadingLogo}
-            />
-            <Text style={styles.loadingTitle}>MAP-OPS</Text>
+            {/* Snow-filled MAP-OPS text as progress indicator */}
+            <SnowFillText progress={downloadProgress} text="MAP-OPS" />
+
+            {/* Status message below */}
             <Text style={styles.loadingText}>{loadingMessage}</Text>
           </View>
         </View>
@@ -493,27 +529,14 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  loadingLogo: {
-    width: 80,
-    height: 80,
-    marginBottom: 16,
-  },
-  loadingTitle: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#7ec8ff',
-    letterSpacing: 3,
-    marginBottom: 20,
-    textShadowColor: 'rgba(126, 200, 255, 0.8)',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 15,
+    paddingHorizontal: 20,
   },
   loadingText: {
-    color: '#ffffff',
+    color: '#7ec8ff',
     fontSize: 14,
     fontWeight: '600',
     textAlign: 'center',
+    marginTop: 30,
   },
   header: {
     paddingTop: 50,
