@@ -127,8 +127,8 @@ function SnowFillText({ progress, text }) {
   );
 }
 
-// Use legacy API to avoid deprecation errors in production builds
-import * as FileSystem from 'expo-file-system/legacy';
+// Use react-native-fs for stable file operations (no Expo deprecation issues)
+import RNFS from 'react-native-fs';
 
 // Import GeoJSON data
 import avyPaths from './assets/layers/BCC_AvyPaths.json';
@@ -247,7 +247,8 @@ export default function App() {
   useEffect(() => {
     async function setupMBTiles() {
       let debug = [];
-      debug.push(`Doc: ${FileSystem.documentDirectory}`);
+      const docsPath = RNFS.DocumentDirectoryPath;
+      debug.push(`Doc: ${docsPath}`);
       setDebugInfo(debug.join('\n'));
       setDownloadProgress(0.05); // Show some initial progress
 
@@ -258,49 +259,63 @@ export default function App() {
 
         for (const [key, basemap] of Object.entries(MBTILES_BASEMAPS)) {
           currentFile++;
-          const destPath = `${FileSystem.documentDirectory}${basemap.file}`;
+          const destPath = `${docsPath}/${basemap.file}`;
           debug.push(`Checking ${key}...`);
           setDebugInfo(debug.join('\n'));
 
-          const fileInfo = await FileSystem.getInfoAsync(destPath);
+          // Check if file exists and get its size
+          const fileExists = await RNFS.exists(destPath);
+          let fileSize = 0;
+          if (fileExists) {
+            const stat = await RNFS.stat(destPath);
+            fileSize = stat.size;
+          }
 
-          if (fileInfo.exists && fileInfo.size > 1000000) {
+          if (fileExists && fileSize > 1000000) {
             // Already downloaded (and file is > 1MB, so not empty/corrupt)
             paths[key] = destPath;
-            const sizeMB = (fileInfo.size / 1024 / 1024).toFixed(1);
+            const sizeMB = (fileSize / 1024 / 1024).toFixed(1);
             debug.push(`${key}: CACHED (${sizeMB}MB)`);
             setDownloadProgress(currentFile / totalFiles);
           } else {
             // Download from GitHub Releases
-            debug.push(`${key}: downloading from GitHub...`);
+            debug.push(`${key}: downloading...`);
             setDebugInfo(debug.join('\n'));
             setLoadingMessage(`Downloading ${basemap.name} (${basemap.size})...\nThis only happens once.`);
             setDownloadProgress((currentFile - 0.5) / totalFiles);
 
             try {
               console.log(`Starting download: ${basemap.url}`);
-              const downloadResult = await FileSystem.downloadAsync(
-                basemap.url,
-                destPath
-              );
+
+              const downloadResult = await RNFS.downloadFile({
+                fromUrl: basemap.url,
+                toFile: destPath,
+                background: true,
+                discretionary: true,
+                progress: (res) => {
+                  const progress = res.bytesWritten / res.contentLength;
+                  setDownloadProgress((currentFile - 1 + progress) / totalFiles);
+                }
+              }).promise;
+
               console.log(`Download result:`, downloadResult);
 
-              if (downloadResult.status === 200) {
-                const newFileInfo = await FileSystem.getInfoAsync(destPath);
-                const sizeMB = (newFileInfo.size / 1024 / 1024).toFixed(1);
+              if (downloadResult.statusCode === 200) {
+                const stat = await RNFS.stat(destPath);
+                const sizeMB = (stat.size / 1024 / 1024).toFixed(1);
                 setDownloadProgress(currentFile / totalFiles);
 
-                if (newFileInfo.size > 1000000) {
+                if (stat.size > 1000000) {
                   paths[key] = destPath;
-                  debug.push(`${key}: DOWNLOADED (${sizeMB}MB)`);
+                  debug.push(`${key}: OK (${sizeMB}MB)`);
                 } else {
-                  debug.push(`${key}: FILE TOO SMALL (${sizeMB}MB)`);
+                  debug.push(`${key}: TOO SMALL (${sizeMB}MB)`);
                 }
               } else {
-                debug.push(`${key}: HTTP ERROR ${downloadResult.status}`);
+                debug.push(`${key}: HTTP ${downloadResult.statusCode}`);
               }
             } catch (downloadError) {
-              debug.push(`${key}: DOWNLOAD FAILED - ${downloadError.message}`);
+              debug.push(`${key}: FAILED - ${downloadError.message}`);
               console.error(`Download error for ${key}:`, downloadError);
             }
           }
@@ -312,8 +327,7 @@ export default function App() {
         debug.push(`---`);
         debug.push(`Ready: ${pathKeys.length > 0 ? pathKeys.join(', ') : 'NONE'}`);
         if (paths.topo) {
-          const tilePath = paths.topo.replace('file://', '');
-          debug.push(`URL: mbtiles://${tilePath}`);
+          debug.push(`Path: ${paths.topo}`);
         } else {
           debug.push('FALLBACK: online tiles');
         }
@@ -327,12 +341,10 @@ export default function App() {
         setMbtilesReady(true);
         setLoadingMessage('');
       } catch (error) {
-        debug.push(`FATAL ERROR: ${error.message}`);
+        debug.push(`ERROR: ${error.message}`);
         setDebugInfo(debug.join('\n'));
         console.error('Setup error:', error);
-        // Keep loading message visible with error
         setLoadingMessage(`Error: ${error.message}`);
-        // Still mark as ready so app doesn't hang
         setTimeout(() => {
           setMbtilesReady(true);
           setLoadingMessage('');
