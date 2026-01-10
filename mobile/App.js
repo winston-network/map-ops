@@ -103,31 +103,35 @@ export default function App() {
   const [pmtilesReady, setPmtilesReady] = useState(false);
   const [pmtilesPaths, setPmtilesPaths] = useState({});
   const [loadingMessage, setLoadingMessage] = useState('Loading offline maps...');
+  const [debugInfo, setDebugInfo] = useState('Starting...');
 
   // Download PMTiles files on first launch for offline use
   useEffect(() => {
     async function setupPMTiles() {
-      console.log('=== Starting PMTiles setup ===');
-      console.log('Document directory:', FileSystem.documentDirectory);
+      let debug = [];
+      debug.push(`Doc dir: ${FileSystem.documentDirectory}`);
+      setDebugInfo(debug.join('\n'));
 
       try {
         const paths = {};
 
         for (const [key, basemap] of Object.entries(PMTILES_BASEMAPS)) {
           const destPath = `${FileSystem.documentDirectory}${basemap.file}`;
-          console.log(`Checking for ${basemap.file} at: ${destPath}`);
+          debug.push(`Checking ${key}...`);
+          setDebugInfo(debug.join('\n'));
 
           const fileInfo = await FileSystem.getInfoAsync(destPath);
-          console.log(`File info for ${basemap.file}:`, JSON.stringify(fileInfo));
 
           if (fileInfo.exists && fileInfo.size > 1000000) {
             // Already downloaded (and file is > 1MB, so not empty/corrupt)
             paths[key] = destPath;
-            console.log(`PMTiles already downloaded: ${basemap.file} (${fileInfo.size} bytes)`);
+            const sizeMB = (fileInfo.size / 1024 / 1024).toFixed(1);
+            debug.push(`${key}: EXISTS (${sizeMB}MB)`);
           } else {
             // Download from GitHub Releases
-            setLoadingMessage(`Downloading ${basemap.name} (${basemap.size})...\nThis only happens once.`);
-            console.log(`Starting download: ${basemap.url}`);
+            debug.push(`${key}: downloading...`);
+            setDebugInfo(debug.join('\n'));
+            setLoadingMessage(`Downloading ${basemap.name} (${basemap.size})...`);
 
             try {
               const downloadResult = await FileSystem.downloadAsync(
@@ -135,33 +139,39 @@ export default function App() {
                 destPath
               );
 
-              console.log(`Download result for ${basemap.file}:`, JSON.stringify(downloadResult));
-
               if (downloadResult.status === 200) {
                 const newFileInfo = await FileSystem.getInfoAsync(destPath);
-                console.log(`Downloaded file size: ${newFileInfo.size} bytes`);
+                const sizeMB = (newFileInfo.size / 1024 / 1024).toFixed(1);
 
                 if (newFileInfo.size > 1000000) {
                   paths[key] = destPath;
-                  console.log(`Successfully downloaded: ${basemap.file}`);
+                  debug.push(`${key}: OK (${sizeMB}MB)`);
                 } else {
-                  console.error(`Downloaded file too small: ${newFileInfo.size} bytes`);
+                  debug.push(`${key}: TOO SMALL (${sizeMB}MB)`);
                 }
               } else {
-                console.error(`Download failed for ${basemap.file}: status ${downloadResult.status}`);
+                debug.push(`${key}: HTTP ${downloadResult.status}`);
               }
             } catch (downloadError) {
-              console.error(`Download error for ${basemap.file}:`, downloadError.message);
+              debug.push(`${key}: ERR ${downloadError.message}`);
             }
           }
+          setDebugInfo(debug.join('\n'));
         }
 
-        console.log('Final PMTiles paths:', JSON.stringify(paths));
+        // Show final state
+        const pathKeys = Object.keys(paths);
+        debug.push(`Ready: ${pathKeys.length > 0 ? pathKeys.join(', ') : 'NONE'}`);
+        if (paths.topo) {
+          debug.push(`Style: pmtiles://${paths.topo.replace('file://', '')}`);
+        }
+        setDebugInfo(debug.join('\n'));
+
         setPmtilesPaths(paths);
         setPmtilesReady(true);
         setLoadingMessage('');
       } catch (error) {
-        console.error('Error setting up PMTiles:', error.message);
+        setDebugInfo(`ERROR: ${error.message}`);
         setLoadingMessage('');
         setPmtilesReady(true);
       }
@@ -321,9 +331,14 @@ export default function App() {
         ))}
       </MapLibreGL.MapView>
 
+      {/* Debug Panel - tap to toggle */}
+      <TouchableOpacity style={styles.debugPanel} onPress={() => setDebugInfo('')}>
+        <Text style={styles.debugText}>{debugInfo}</Text>
+      </TouchableOpacity>
+
       {/* Footer */}
       <View style={styles.footer}>
-        <Text style={styles.disclaimerText}>⚠ For conceptual testing only. Not for operational use.</Text>
+        <Text style={styles.disclaimerText}>For conceptual testing only. Not for operational use.</Text>
         <View style={styles.logoRow}>
           <Image source={require('./assets/logos/usfs.png')} style={styles.footerLogo} />
           <Image source={require('./assets/logos/udot.png')} style={styles.footerLogo} />
@@ -469,6 +484,18 @@ const styles = StyleSheet.create({
   mapIcon: {
     width: 32,
     height: 32,
+  },
+  debugPanel: {
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    padding: 8,
+    marginHorizontal: 8,
+    marginVertical: 4,
+    borderRadius: 4,
+  },
+  debugText: {
+    color: '#00ff00',
+    fontSize: 9,
+    fontFamily: 'monospace',
   },
   footer: {
     backgroundColor: '#1a1a2e',
