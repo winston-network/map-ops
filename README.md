@@ -8,8 +8,52 @@ Offline map application for avalanche control operations in Utah's Cottonwood Ca
 
 ## Current Status
 
-**Version:** 1.3.0
-**Phase:** Mobile App Ready for Testing
+**Version:** 2.1.1 (feature/react-native-fs branch)
+**Phase:** Offline Basemap Development
+
+**Updates (Jan 10, 2026):**
+- Offline basemap work in progress on `feature/react-native-fs` branch
+- UI features working: snow loading animation, glowing snowflake icon, layer toggles
+- Basemap downloads working (MBTiles from GitHub Releases)
+- Tile rendering still in development (see Offline Basemap Status below)
+
+**Last Stable Version:** [v1.5.0](https://github.com/winston-network/map-ops/releases/tag/v1.5.0) - Pre-offline basemap work, uses online fallback tiles
+
+---
+
+## Offline Basemap Status
+
+**Goal:** Load custom offline basemaps (shaded topo + satellite) like the Wasatch Backcountry Skiing app.
+
+**Approaches Tried:**
+
+| Approach | Status | Issue |
+|----------|--------|-------|
+| PMTiles with `pmtiles://` protocol | Failed | MapLibre RN doesn't support protocol |
+| MBTiles with `mbtiles://` protocol | Failed | MapLibre RN doesn't support protocol |
+| HTTP Bridge Server (localhost:9876) | Partial | Server runs, but binary tile data not rendering |
+| Static File Server (@dr.pogodin/react-native-static-server) | Failed | Build errors with native module |
+| File:// URLs (current) | Testing | Extract tiles to files, MapLibre reads directly |
+
+**Current Architecture (v2.1.x):**
+1. Download MBTiles from GitHub Releases on first launch
+2. Extract tiles from SQLite to individual PNG files (`tiles/topo/z/x/y.png`)
+3. MapLibre reads tiles via `file://` URLs
+
+**Basemap Files (GitHub Releases v1.1.0-basemaps):**
+- `CC_shaded_topo.mbtiles` (58 MB)
+- `CC_satellite_12_14.mbtiles` (25 MB)
+
+**Reference App:** Wasatch Backcountry Skiing (iOS) - uses GCDWebServer + SQLite for offline tiles
+
+---
+
+**Updates (Jan 9, 2026):**
+- Avalanche paths changed to light blue (#7ec8ff)
+- Glowing snowflake app icon
+- Snow loading animation with text-fill progress indicator
+- Switched from expo-file-system to react-native-fs
+- iOS App Transport Security configured for localhost
 
 **Updates (Jan 7, 2026):**
 - Android preview build v1.3.0 available for testing
@@ -19,8 +63,7 @@ Offline map application for avalanche control operations in Utah's Cottonwood Ca
 - Version bump script (`npm run bump patch|minor|major`)
 - Removed location info display from sidebar
 
-- <img width="1225" height="948" alt="image" src="https://github.com/user-attachments/assets/15266458-f8de-4668-bc54-61272e753e25" />
-
+<img width="1225" height="948" alt="image" src="https://github.com/user-attachments/assets/15266458-f8de-4668-bc54-61272e753e25" />
 
 **Updates (Jan 6, 2026):**
 - Mobile app with MapLibre React Native
@@ -47,9 +90,10 @@ Offline map application for avalanche control operations in Utah's Cottonwood Ca
 - All branches merged to main, clean repo state
 
 **Next Steps:**
-1. iOS build (waiting for Apple Developer approval)
-2. TestFlight beta distribution
-3. Field testing with GPS tracking
+1. Get offline basemaps rendering in iOS
+2. Merge working solution to main
+3. TestFlight beta distribution
+4. Field testing with GPS tracking
 
 ---
 
