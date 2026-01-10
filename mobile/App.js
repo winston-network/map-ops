@@ -43,21 +43,26 @@ const layerBounds = calculateBounds([avyPaths, gatesData, stagingData]);
 // Initialize MapLibre (no access token needed for free tiles)
 MapLibreGL.setAccessToken(null);
 
-// PMTiles basemap files (bundled with app for offline use)
-// Using Expo Asset module IDs - files must be in assets/basemap/
+// PMTiles basemap files - downloaded on first launch for offline use
+// Hosted on GitHub Releases for free, reliable download
 const PMTILES_BASEMAPS = {
   topo: {
     name: 'Topo',
     file: 'CC_shaded_topo.pmtiles',
+    // GitHub Release URL - update this when you create the release
+    url: 'https://github.com/winston-network/map-ops/releases/download/v1.0.0-basemaps/CC_shaded_topo.pmtiles',
+    size: '58 MB',
   },
   satellite: {
     name: 'Satellite',
     file: 'CC_satellite_12_14.pmtiles',
+    url: 'https://github.com/winston-network/map-ops/releases/download/v1.0.0-basemaps/CC_satellite_12_14.pmtiles',
+    size: '25 MB',
   }
 };
 
-// Online fallback styles (used if PMTiles not ready)
-const ONLINE_FALLBACK = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
+// Online fallback styles (used while downloading or if download fails)
+const ONLINE_FALLBACK = 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
 
 // Build a MapLibre style using local PMTiles file
 function buildPMTilesStyle(pmtilesPath) {
@@ -95,36 +100,49 @@ export default function App() {
   const [pmtilesPaths, setPmtilesPaths] = useState({});
   const [loadingMessage, setLoadingMessage] = useState('Loading offline maps...');
 
-  // Check for PMTiles files in document directory
+  // Download PMTiles files on first launch for offline use
   useEffect(() => {
     async function setupPMTiles() {
       try {
         const paths = {};
-        let foundLocal = false;
 
         for (const [key, basemap] of Object.entries(PMTILES_BASEMAPS)) {
-          setLoadingMessage(`Checking ${basemap.name} basemap...`);
-
-          // Check document directory for pmtiles files
           const destPath = `${FileSystem.documentDirectory}${basemap.file}`;
           const fileInfo = await FileSystem.getInfoAsync(destPath);
 
           if (fileInfo.exists) {
+            // Already downloaded
             paths[key] = destPath;
-            foundLocal = true;
-            console.log(`Found local PMTiles: ${basemap.file}`);
+            console.log(`PMTiles already downloaded: ${basemap.file}`);
           } else {
-            console.log(`PMTiles not found locally: ${basemap.file}`);
+            // Download from GitHub Releases
+            setLoadingMessage(`Downloading ${basemap.name} (${basemap.size})...`);
+            console.log(`Downloading PMTiles: ${basemap.url}`);
+
+            try {
+              const downloadResult = await FileSystem.downloadAsync(
+                basemap.url,
+                destPath
+              );
+
+              if (downloadResult.status === 200) {
+                paths[key] = destPath;
+                console.log(`Downloaded: ${basemap.file}`);
+              } else {
+                console.error(`Download failed for ${basemap.file}: ${downloadResult.status}`);
+              }
+            } catch (downloadError) {
+              console.error(`Download error for ${basemap.file}:`, downloadError);
+              // Continue without this basemap
+            }
           }
         }
 
-        if (foundLocal) {
-          setPmtilesPaths(paths);
-        }
+        setPmtilesPaths(paths);
         setPmtilesReady(true);
         setLoadingMessage('');
       } catch (error) {
-        console.error('Error checking PMTiles:', error);
+        console.error('Error setting up PMTiles:', error);
         setLoadingMessage('');
         setPmtilesReady(true);
       }
