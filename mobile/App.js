@@ -1,7 +1,8 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, View, Text, TouchableOpacity, Image, ActivityIndicator, Animated, Dimensions } from 'react-native';
-import MapLibreGL from '@maplibre/maplibre-react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Image, Animated, Dimensions } from 'react-native';
+import { WebView } from 'react-native-webview';
 import { useState, useEffect, useRef } from 'react';
+import * as Location from 'expo-location';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -65,7 +66,6 @@ function SnowFillText({ progress, text }) {
 
   return (
     <View style={{ position: 'relative', height: 80, justifyContent: 'center' }}>
-      {/* Background text - outline/empty look */}
       <Text style={{
         fontSize: 52,
         fontWeight: '900',
@@ -75,12 +75,9 @@ function SnowFillText({ progress, text }) {
         textShadowColor: '#7ec8ff',
         textShadowOffset: { width: 0, height: 0 },
         textShadowRadius: 1,
-        // Create outline effect with multiple shadows
       }}>
         {text}
       </Text>
-
-      {/* Outline layer */}
       <Text style={{
         position: 'absolute',
         width: '100%',
@@ -90,15 +87,12 @@ function SnowFillText({ progress, text }) {
         letterSpacing: 6,
         textAlign: 'center',
         textDecorationLine: 'none',
-        // Stroke effect using text shadow
         textShadowColor: '#3a5f7d',
         textShadowOffset: { width: 1, height: 1 },
         textShadowRadius: 2,
       }}>
         {text}
       </Text>
-
-      {/* Fill layer - clips from bottom up */}
       <View style={{
         position: 'absolute',
         bottom: 0,
@@ -135,42 +129,8 @@ import stagingData from './assets/layers/BCC_Staging.json';
 // Import app config for version
 import appConfig from './app.json';
 
-// Calculate bounding box from all GeoJSON layers
-function calculateBounds(geojsonLayers) {
-  let minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity;
-
-  geojsonLayers.forEach(geojson => {
-    geojson.features.forEach(feature => {
-      const processCoords = (coords) => {
-        if (typeof coords[0] === 'number') {
-          // It's a coordinate pair [lng, lat]
-          minLng = Math.min(minLng, coords[0]);
-          maxLng = Math.max(maxLng, coords[0]);
-          minLat = Math.min(minLat, coords[1]);
-          maxLat = Math.max(maxLat, coords[1]);
-        } else {
-          // It's an array of coordinates
-          coords.forEach(processCoords);
-        }
-      };
-      processCoords(feature.geometry.coordinates);
-    });
-  });
-
-  return { minLng, minLat, maxLng, maxLat };
-}
-
-// Get bounds from all layers
-const layerBounds = calculateBounds([avyPaths, gatesData, stagingData]);
-
-// Initialize MapLibre (no access token needed for free tiles)
-MapLibreGL.setAccessToken(null);
-
-// Online basemap styles
-const BASEMAP_STYLES = {
-  topo: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
-  satellite: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
-};
+// Import HTML for map
+import { mapHtml } from './src/mapHtml';
 
 export default function App() {
   // Layer visibility state
@@ -181,9 +141,13 @@ export default function App() {
 
   // App state
   const [isReady, setIsReady] = useState(false);
+  const [mapReady, setMapReady] = useState(false);
 
   // Selected feature for popup
   const [selectedFeature, setSelectedFeature] = useState(null);
+
+  // WebView ref
+  const webViewRef = useRef(null);
 
   // Generate snowflakes for loading animation
   const snowflakes = useRef(
@@ -196,17 +160,105 @@ export default function App() {
     }))
   ).current;
 
-  // Simple initialization - using online tiles for now
-  useEffect(() => {
-    // Brief loading animation then show map
-    const timer = setTimeout(() => {
-      setIsReady(true);
-    }, 1500);
-    return () => clearTimeout(timer);
-  }, []);
+  // Send message to WebView
+  const sendToWebView = (message) => {
+    if (webViewRef.current && mapReady) {
+      webViewRef.current.postMessage(JSON.stringify(message));
+    }
+  };
 
-  // Get current basemap style (online for now)
-  const mapStyle = BASEMAP_STYLES[currentBasemap];
+  // Handle messages from WebView
+  const handleWebViewMessage = (event) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+
+      switch (data.type) {
+        case 'mapReady':
+          setMapReady(true);
+          setIsReady(true);
+          // Send GeoJSON data to map
+          webViewRef.current?.postMessage(JSON.stringify({
+            type: 'setGeoJSON',
+            avyPaths: avyPaths,
+            gates: gatesData,
+            staging: stagingData,
+          }));
+          break;
+
+        case 'featureSelected':
+          setSelectedFeature({
+            type: data.featureType,
+            description: data.description,
+          });
+          break;
+      }
+    } catch (e) {
+      console.error('Error handling WebView message:', e);
+    }
+  };
+
+  // Update WebView when layer visibility changes
+  useEffect(() => {
+    if (mapReady) {
+      sendToWebView({ type: 'toggleLayer', layer: 'avyPaths', visible: showAvyPaths });
+    }
+  }, [showAvyPaths, mapReady]);
+
+  useEffect(() => {
+    if (mapReady) {
+      sendToWebView({ type: 'toggleLayer', layer: 'gates', visible: showGates });
+    }
+  }, [showGates, mapReady]);
+
+  useEffect(() => {
+    if (mapReady) {
+      sendToWebView({ type: 'toggleLayer', layer: 'staging', visible: showStaging });
+    }
+  }, [showStaging, mapReady]);
+
+  // Update WebView when basemap changes
+  useEffect(() => {
+    if (mapReady) {
+      sendToWebView({ type: 'setBasemap', basemap: currentBasemap });
+    }
+  }, [currentBasemap, mapReady]);
+
+  // Location tracking
+  useEffect(() => {
+    let locationSubscription;
+
+    const startLocationTracking = async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return;
+
+      locationSubscription = await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.High,
+          timeInterval: 5000,
+          distanceInterval: 10,
+        },
+        (location) => {
+          if (mapReady) {
+            sendToWebView({
+              type: 'updateLocation',
+              lng: location.coords.longitude,
+              lat: location.coords.latitude,
+            });
+          }
+        }
+      );
+    };
+
+    if (mapReady) {
+      startLocationTracking();
+    }
+
+    return () => {
+      if (locationSubscription) {
+        locationSubscription.remove();
+      }
+    };
+  }, [mapReady]);
 
   return (
     <View style={styles.container}>
@@ -247,7 +299,7 @@ export default function App() {
           </TouchableOpacity>
         </View>
 
-        {/* Layer Toggles - icons on right side */}
+        {/* Layer Toggles */}
         <TouchableOpacity
           style={[styles.toggleBtn, showAvyPaths && styles.toggleBtnActive]}
           onPress={() => setShowAvyPaths(!showAvyPaths)}
@@ -257,26 +309,25 @@ export default function App() {
         </TouchableOpacity>
 
         <TouchableOpacity
+          style={[styles.toggleBtn, showStaging && styles.toggleBtnActive]}
+          onPress={() => setShowStaging(!showStaging)}
+        >
+          <Text style={styles.toggleText}>Staging</Text>
+          <View style={styles.toggleCircle} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
           style={[styles.toggleBtn, showGates && styles.toggleBtnActive]}
           onPress={() => setShowGates(!showGates)}
         >
           <Text style={styles.toggleText}>Gates</Text>
           <Image source={require('./assets/icons/BCC_Gates.png')} style={styles.toggleIcon} />
         </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.toggleBtn, showStaging && styles.toggleBtnActive]}
-          onPress={() => setShowStaging(!showStaging)}
-        >
-          <Text style={styles.toggleText}>Mile</Text>
-          <View style={styles.toggleCircle} />
-        </TouchableOpacity>
       </View>
 
       {/* Loading Screen with Snow Animation */}
-      {!isReady ? (
+      {!isReady && (
         <View style={styles.loadingContainer}>
-          {/* Falling snowflakes */}
           {snowflakes.map(flake => (
             <Snowflake
               key={flake.id}
@@ -286,108 +337,29 @@ export default function App() {
               size={flake.size}
             />
           ))}
-
-          {/* Centered content */}
           <View style={styles.loadingContent}>
-            {/* Snow-filled MAP-OPS text */}
             <SnowFillText progress={1} text="MAP-OPS" />
-
-            {/* Status message below */}
-            <Text style={styles.loadingText}>Loading...</Text>
+            <Text style={styles.loadingText}>Loading map...</Text>
           </View>
         </View>
-      ) : null}
+      )}
 
-      {/* MapLibre Map */}
-      <MapLibreGL.MapView
-        key={currentBasemap}
+      {/* WebView Map */}
+      <WebView
+        ref={webViewRef}
+        source={{ html: mapHtml }}
         style={styles.map}
-        styleURL={mapStyle}
-        logoEnabled={false}
-        attributionEnabled={false}
-      >
-        <MapLibreGL.Camera
-          defaultSettings={{
-            bounds: {
-              ne: [layerBounds.maxLng + 0.01, layerBounds.maxLat + 0.01],
-              sw: [layerBounds.minLng - 0.01, layerBounds.minLat - 0.01],
-            },
-            padding: { top: 50, bottom: 50, left: 50, right: 50 },
-          }}
-        />
-
-        {/* User location */}
-        <MapLibreGL.UserLocation visible={true} />
-
-        {/* Avalanche Paths - Light blue polygons */}
-        <MapLibreGL.ShapeSource
-          id="avyPaths"
-          shape={avyPaths}
-          onPress={(e) => {
-            if (showAvyPaths && e.features && e.features.length > 0) {
-              const feature = e.features[0];
-              setSelectedFeature({
-                type: 'Avalanche Path',
-                description: feature.properties?.description || feature.properties?.name || 'Unknown Path',
-                coordinates: e.coordinates,
-              });
-            }
-          }}
-        >
-          <MapLibreGL.FillLayer
-            id="avyPathsFill"
-            style={{
-              fillColor: '#7ec8ff',
-              fillOpacity: showAvyPaths ? 0.3 : 0,
-            }}
-          />
-          <MapLibreGL.LineLayer
-            id="avyPathsLine"
-            style={{
-              lineColor: '#7ec8ff',
-              lineWidth: 2,
-              lineOpacity: showAvyPaths ? 0.8 : 0,
-            }}
-          />
-        </MapLibreGL.ShapeSource>
-
-        {/* Gates - Custom icon markers */}
-        {showGates && gatesData.features.map(feature => (
-          <MapLibreGL.PointAnnotation
-            key={`gate-${feature.id}`}
-            id={`gate-${feature.id}`}
-            coordinate={feature.geometry.coordinates}
-            onSelected={() => setSelectedFeature({
-              type: 'Gate',
-              description: feature.properties.description || 'Gate',
-              coordinates: feature.geometry.coordinates,
-            })}
-          >
-            <Image source={require('./assets/icons/BCC_Gates.png')} style={styles.mapIcon} />
-            <MapLibreGL.Callout title={feature.properties.description || 'Gate'} />
-          </MapLibreGL.PointAnnotation>
-        ))}
-
-        {/* Staging Areas - Orange circles with mile marker */}
-        {showStaging && stagingData.features.map(feature => (
-          <MapLibreGL.PointAnnotation
-            key={`staging-${feature.id}`}
-            id={`staging-${feature.id}`}
-            coordinate={feature.geometry.coordinates}
-            anchor={{ x: 0.5, y: 0.5 }}
-            onSelected={() => setSelectedFeature({
-              type: 'Staging Area',
-              description: `Mile Marker ${feature.properties.description}` || 'Staging Area',
-              coordinates: feature.geometry.coordinates,
-            })}
-          >
-            <View style={styles.mileMarker}>
-              <Text style={styles.mileMarkerText}>{feature.properties.description || '?'}</Text>
-            </View>
-            <MapLibreGL.Callout title={`Mile ${feature.properties.description}`} />
-          </MapLibreGL.PointAnnotation>
-        ))}
-      </MapLibreGL.MapView>
+        onMessage={handleWebViewMessage}
+        javaScriptEnabled={true}
+        domStorageEnabled={true}
+        allowFileAccess={true}
+        allowFileAccessFromFileURLs={true}
+        allowUniversalAccessFromFileURLs={true}
+        originWhitelist={['*']}
+        mixedContentMode="always"
+        onError={(e) => console.error('WebView error:', e.nativeEvent)}
+        onHttpError={(e) => console.error('WebView HTTP error:', e.nativeEvent)}
+      />
 
       {/* Feature Popup */}
       {selectedFeature && (
@@ -430,7 +402,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     overflow: 'hidden',
-    backgroundColor: 'rgba(26, 26, 46, 0.9)',
+    backgroundColor: 'rgba(26, 26, 46, 0.95)',
     zIndex: 1000,
   },
   loadingContent: {
@@ -561,30 +533,7 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
-  },
-  mapIcon: {
-    width: 32,
-    height: 32,
-  },
-  mileMarker: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#f97316',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#ffffff',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 5,
-  },
-  mileMarkerText: {
-    color: '#ffffff',
-    fontSize: 10,
-    fontWeight: '800',
+    backgroundColor: '#1a1a2e',
   },
   popupOverlay: {
     position: 'absolute',

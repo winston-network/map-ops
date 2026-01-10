@@ -1,0 +1,408 @@
+// Map HTML for WebView - MapLibre GL JS with PMTiles support
+export const mapHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>MAP-OPS</title>
+  <script src="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.js"></script>
+  <link href="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.css" rel="stylesheet" />
+  <script src="https://unpkg.com/pmtiles@3.0.6/dist/pmtiles.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; }
+    #map { width: 100%; height: 100%; }
+    .maplibregl-ctrl-attrib { display: none !important; }
+    .maplibregl-ctrl-logo { display: none !important; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <script>
+    // PMTiles protocol registration
+    const protocol = new pmtiles.Protocol();
+    maplibregl.addProtocol('pmtiles', protocol.tile);
+
+    // Basemap URLs - PMTiles from GitHub Releases
+    // TODO: Upload PMTiles to releases and update URLs
+    const BASEMAPS = {
+      // Custom basemaps (uncomment when uploaded to releases):
+      // topo: 'pmtiles://https://github.com/winston-network/map-ops/releases/download/v1.2.0-basemaps/CC_shaded_topo.pmtiles',
+      // satellite: 'pmtiles://https://github.com/winston-network/map-ops/releases/download/v1.2.0-basemaps/CC_satellite_12_14.pmtiles'
+
+      // Test basemaps (Protomaps terrain tiles)
+      topo: 'pmtiles://https://r2-public.protomaps.com/protomaps-sample-datasets/terrarium_z9.pmtiles',
+      satellite: 'pmtiles://https://r2-public.protomaps.com/protomaps-sample-datasets/terrarium_z9.pmtiles'
+    };
+
+    // Current state
+    let currentBasemap = 'topo';
+    let showAvyPaths = true;
+    let showGates = true;
+    let showStaging = true;
+    let map = null;
+
+    // GeoJSON data (will be injected from React Native)
+    let avyPathsData = null;
+    let gatesData = null;
+    let stagingData = null;
+
+    // Calculate bounds from GeoJSON
+    function calculateBounds(geojsonLayers) {
+      let minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity;
+
+      geojsonLayers.forEach(geojson => {
+        if (!geojson || !geojson.features) return;
+        geojson.features.forEach(feature => {
+          const processCoords = (coords) => {
+            if (typeof coords[0] === 'number') {
+              minLng = Math.min(minLng, coords[0]);
+              maxLng = Math.max(maxLng, coords[0]);
+              minLat = Math.min(minLat, coords[1]);
+              maxLat = Math.max(maxLat, coords[1]);
+            } else {
+              coords.forEach(processCoords);
+            }
+          };
+          processCoords(feature.geometry.coordinates);
+        });
+      });
+
+      return [[minLng - 0.01, minLat - 0.01], [maxLng + 0.01, maxLat + 0.01]];
+    }
+
+    // Create raster style for PMTiles
+    function createStyle(basemapUrl) {
+      return {
+        version: 8,
+        sources: {
+          basemap: {
+            type: 'raster',
+            url: basemapUrl,
+            tileSize: 256
+          }
+        },
+        layers: [
+          {
+            id: 'basemap-layer',
+            type: 'raster',
+            source: 'basemap',
+            minzoom: 0,
+            maxzoom: 22
+          }
+        ]
+      };
+    }
+
+    // Initialize map
+    function initMap() {
+      map = new maplibregl.Map({
+        container: 'map',
+        style: createStyle(BASEMAPS[currentBasemap]),
+        center: [-111.6, 40.58],
+        zoom: 12,
+        attributionControl: false
+      });
+
+      map.on('load', () => {
+        // Add GeoJSON sources and layers once data is available
+        if (avyPathsData) addAvyPathsLayer();
+        if (gatesData) addGatesLayer();
+        if (stagingData) addStagingLayer();
+
+        // Fit to bounds if we have data
+        if (avyPathsData || gatesData || stagingData) {
+          const bounds = calculateBounds([avyPathsData, gatesData, stagingData].filter(Boolean));
+          if (bounds[0][0] !== Infinity) {
+            map.fitBounds(bounds, { padding: 50 });
+          }
+        }
+
+        // Notify React Native that map is ready
+        sendMessage({ type: 'mapReady' });
+      });
+
+      // Click handlers for features
+      map.on('click', 'avy-paths-fill', (e) => {
+        if (e.features && e.features.length > 0) {
+          const feature = e.features[0];
+          sendMessage({
+            type: 'featureSelected',
+            featureType: 'Avalanche Path',
+            description: feature.properties.description || feature.properties.name || 'Unknown Path'
+          });
+        }
+      });
+
+      map.on('click', 'gates-layer', (e) => {
+        if (e.features && e.features.length > 0) {
+          const feature = e.features[0];
+          sendMessage({
+            type: 'featureSelected',
+            featureType: 'Gate',
+            description: feature.properties.description || 'Gate'
+          });
+        }
+      });
+
+      map.on('click', 'staging-layer', (e) => {
+        if (e.features && e.features.length > 0) {
+          const feature = e.features[0];
+          sendMessage({
+            type: 'featureSelected',
+            featureType: 'Staging Area',
+            description: 'Mile Marker ' + (feature.properties.description || '?')
+          });
+        }
+      });
+
+      // Cursor changes
+      ['avy-paths-fill', 'gates-layer', 'staging-layer'].forEach(layer => {
+        map.on('mouseenter', layer, () => { map.getCanvas().style.cursor = 'pointer'; });
+        map.on('mouseleave', layer, () => { map.getCanvas().style.cursor = ''; });
+      });
+    }
+
+    // Add avalanche paths layer
+    function addAvyPathsLayer() {
+      if (!map || !avyPathsData) return;
+
+      if (map.getSource('avy-paths')) {
+        map.getSource('avy-paths').setData(avyPathsData);
+      } else {
+        map.addSource('avy-paths', { type: 'geojson', data: avyPathsData });
+
+        map.addLayer({
+          id: 'avy-paths-fill',
+          type: 'fill',
+          source: 'avy-paths',
+          paint: {
+            'fill-color': '#7ec8ff',
+            'fill-opacity': 0.3
+          }
+        });
+
+        map.addLayer({
+          id: 'avy-paths-line',
+          type: 'line',
+          source: 'avy-paths',
+          paint: {
+            'line-color': '#7ec8ff',
+            'line-width': 2,
+            'line-opacity': 0.8
+          }
+        });
+      }
+
+      updateLayerVisibility();
+    }
+
+    // Add gates layer
+    function addGatesLayer() {
+      if (!map || !gatesData) return;
+
+      if (map.getSource('gates')) {
+        map.getSource('gates').setData(gatesData);
+      } else {
+        map.addSource('gates', { type: 'geojson', data: gatesData });
+
+        // Load gate icon
+        map.loadImage('https://raw.githubusercontent.com/winston-network/map-ops/main/images/icons/BCC_Gates.png', (error, image) => {
+          if (error) {
+            console.error('Error loading gate icon:', error);
+            // Fallback to circle
+            map.addLayer({
+              id: 'gates-layer',
+              type: 'circle',
+              source: 'gates',
+              paint: {
+                'circle-radius': 8,
+                'circle-color': '#f59e0b',
+                'circle-stroke-width': 2,
+                'circle-stroke-color': '#ffffff'
+              }
+            });
+          } else {
+            map.addImage('gate-icon', image);
+            map.addLayer({
+              id: 'gates-layer',
+              type: 'symbol',
+              source: 'gates',
+              layout: {
+                'icon-image': 'gate-icon',
+                'icon-size': 0.5,
+                'icon-allow-overlap': true
+              }
+            });
+          }
+          updateLayerVisibility();
+        });
+      }
+    }
+
+    // Add staging/mile marker layer
+    function addStagingLayer() {
+      if (!map || !stagingData) return;
+
+      if (map.getSource('staging')) {
+        map.getSource('staging').setData(stagingData);
+      } else {
+        map.addSource('staging', { type: 'geojson', data: stagingData });
+
+        map.addLayer({
+          id: 'staging-layer',
+          type: 'circle',
+          source: 'staging',
+          paint: {
+            'circle-radius': 14,
+            'circle-color': '#f97316',
+            'circle-stroke-width': 2,
+            'circle-stroke-color': '#ffffff'
+          }
+        });
+
+        map.addLayer({
+          id: 'staging-labels',
+          type: 'symbol',
+          source: 'staging',
+          layout: {
+            'text-field': ['get', 'description'],
+            'text-size': 10,
+            'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+            'text-allow-overlap': true
+          },
+          paint: {
+            'text-color': '#ffffff'
+          }
+        });
+      }
+
+      updateLayerVisibility();
+    }
+
+    // Update layer visibility
+    function updateLayerVisibility() {
+      if (!map) return;
+
+      const setVisibility = (layerId, visible) => {
+        if (map.getLayer(layerId)) {
+          map.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none');
+        }
+      };
+
+      setVisibility('avy-paths-fill', showAvyPaths);
+      setVisibility('avy-paths-line', showAvyPaths);
+      setVisibility('gates-layer', showGates);
+      setVisibility('staging-layer', showStaging);
+      setVisibility('staging-labels', showStaging);
+    }
+
+    // Switch basemap
+    function switchBasemap(basemap) {
+      if (!map || basemap === currentBasemap) return;
+      currentBasemap = basemap;
+
+      // For PMTiles, we need to reload the style
+      const currentCenter = map.getCenter();
+      const currentZoom = map.getZoom();
+
+      map.setStyle(createStyle(BASEMAPS[basemap]));
+
+      map.once('style.load', () => {
+        map.setCenter(currentCenter);
+        map.setZoom(currentZoom);
+        // Re-add layers after style change
+        if (avyPathsData) addAvyPathsLayer();
+        if (gatesData) addGatesLayer();
+        if (stagingData) addStagingLayer();
+      });
+    }
+
+    // Update user location
+    function updateUserLocation(lng, lat) {
+      if (!map) return;
+
+      if (map.getSource('user-location')) {
+        map.getSource('user-location').setData({
+          type: 'Point',
+          coordinates: [lng, lat]
+        });
+      } else {
+        map.addSource('user-location', {
+          type: 'geojson',
+          data: { type: 'Point', coordinates: [lng, lat] }
+        });
+
+        map.addLayer({
+          id: 'user-location-layer',
+          type: 'circle',
+          source: 'user-location',
+          paint: {
+            'circle-radius': 8,
+            'circle-color': '#4285f4',
+            'circle-stroke-width': 3,
+            'circle-stroke-color': '#ffffff'
+          }
+        });
+      }
+    }
+
+    // Send message to React Native
+    function sendMessage(data) {
+      if (window.ReactNativeWebView) {
+        window.ReactNativeWebView.postMessage(JSON.stringify(data));
+      }
+    }
+
+    // Handle messages from React Native
+    function handleMessage(event) {
+      try {
+        const data = JSON.parse(event.data);
+
+        switch (data.type) {
+          case 'setGeoJSON':
+            avyPathsData = data.avyPaths;
+            gatesData = data.gates;
+            stagingData = data.staging;
+            if (map && map.loaded()) {
+              addAvyPathsLayer();
+              addGatesLayer();
+              addStagingLayer();
+              const bounds = calculateBounds([avyPathsData, gatesData, stagingData]);
+              if (bounds[0][0] !== Infinity) {
+                map.fitBounds(bounds, { padding: 50 });
+              }
+            }
+            break;
+
+          case 'toggleLayer':
+            if (data.layer === 'avyPaths') showAvyPaths = data.visible;
+            if (data.layer === 'gates') showGates = data.visible;
+            if (data.layer === 'staging') showStaging = data.visible;
+            updateLayerVisibility();
+            break;
+
+          case 'setBasemap':
+            switchBasemap(data.basemap);
+            break;
+
+          case 'updateLocation':
+            updateUserLocation(data.lng, data.lat);
+            break;
+        }
+      } catch (e) {
+        console.error('Error handling message:', e);
+      }
+    }
+
+    // Listen for messages
+    window.addEventListener('message', handleMessage);
+    document.addEventListener('message', handleMessage);
+
+    // Initialize
+    initMap();
+  </script>
+</body>
+</html>
+`;

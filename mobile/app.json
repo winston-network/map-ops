@@ -2,7 +2,7 @@
   "expo": {
     "name": "MAP-OPS",
     "slug": "mobile",
-    "version": "2.4.0",
+    "version": "2.5.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
