@@ -1,15 +1,15 @@
 /**
- * Tile Server for MBTiles - HTTP Server + File-based approach
+ * Tile Server for MBTiles - GCDWebServer approach (like Wasatch app)
  *
  * How it works:
- * 1. Extract tiles from MBTiles (SQLite) to individual PNG files on first launch
- * 2. Run HTTP server on localhost to serve those files
+ * 1. Extract tiles from MBTiles (SQLite) to individual files on first launch
+ * 2. Use react-native-static-server (GCDWebServer on iOS) to serve tile directory
  * 3. MapLibre requests tiles via http://localhost:PORT/dbname/z/x/y.png
  *
- * This combines the reliability of file extraction with HTTP server for iOS compatibility.
+ * This uses the same GCDWebServer that Wasatch Backcountry Skiing app uses.
  */
 
-import { BridgeServer } from 'react-native-http-bridge-refurbished';
+import StaticServer from 'react-native-static-server';
 import SQLite from 'react-native-sqlite-storage';
 import RNFS from 'react-native-fs';
 
@@ -151,7 +151,7 @@ class TileServer {
   }
 
   /**
-   * Start the HTTP server to serve extracted tiles
+   * Start the static file server (GCDWebServer on iOS)
    */
   async start() {
     if (this.isRunning) {
@@ -166,60 +166,17 @@ class TileServer {
         await RNFS.mkdir(this.tilesDir);
       }
 
-      this.server = new BridgeServer('http_service', true);
-
-      // Serve tile requests: /dbname/z/x/y.png
-      this.server.get('/:db/:z/:x/:y.png', async (req, res) => {
-        const { db, z, x, y } = req.params;
-        const tilePath = `${this.tilesDir}/${db}/${z}/${x}/${y}.png`;
-
-        try {
-          const exists = await RNFS.exists(tilePath);
-          if (exists) {
-            // Read file as base64
-            const base64Data = await RNFS.readFile(tilePath, 'base64');
-            // Send as image/png with base64 data
-            res.send(200, 'image/png', base64Data);
-          } else {
-            res.send(404, 'text/plain', 'Tile not found');
-          }
-        } catch (error) {
-          console.error('Tile serve error:', error);
-          res.send(500, 'text/plain', error.message);
-        }
+      // Create static server pointing to tiles directory
+      // GCDWebServer on iOS, NanoHttpd on Android
+      this.server = new StaticServer(this.port, this.tilesDir, {
+        localOnly: true,
+        keepAlive: true,
       });
 
-      // Also handle requests without .png extension
-      this.server.get('/:db/:z/:x/:y', async (req, res) => {
-        const { db, z, x, y } = req.params;
-        const tilePath = `${this.tilesDir}/${db}/${z}/${x}/${y}.png`;
-
-        try {
-          const exists = await RNFS.exists(tilePath);
-          if (exists) {
-            const base64Data = await RNFS.readFile(tilePath, 'base64');
-            res.send(200, 'image/png', base64Data);
-          } else {
-            res.send(404, 'text/plain', 'Tile not found');
-          }
-        } catch (error) {
-          console.error('Tile serve error:', error);
-          res.send(500, 'text/plain', error.message);
-        }
-      });
-
-      // Health check
-      this.server.get('/health', (req, res) => {
-        res.send(200, 'application/json', JSON.stringify({
-          status: 'ok',
-          tilesDir: this.tilesDir,
-          extracted: Array.from(this.extractedDbs)
-        }));
-      });
-
-      await this.server.listen(this.port);
+      // Start the server
+      const url = await this.server.start();
       this.isRunning = true;
-      console.log(`Tile server running on http://localhost:${this.port}`);
+      console.log(`Tile server (GCDWebServer) running at ${url}`);
       return true;
 
     } catch (error) {
@@ -246,7 +203,7 @@ class TileServer {
         return false;
       }
 
-      console.log(`${name}: ready to serve via HTTP`);
+      console.log(`${name}: ready to serve`);
       return true;
 
     } catch (error) {
@@ -257,6 +214,7 @@ class TileServer {
 
   /**
    * Get tile URL template for MapLibre
+   * Static server serves: http://localhost:PORT/dbname/z/x/y.png
    */
   getTileUrl(dbName) {
     return `http://localhost:${this.port}/${dbName}/{z}/{x}/{y}.png`;
@@ -267,7 +225,7 @@ class TileServer {
    */
   async stop() {
     if (this.server) {
-      this.server.stop();
+      await this.server.stop();
       this.server = null;
     }
     this.isRunning = false;
