@@ -127,12 +127,6 @@ function SnowFillText({ progress, text }) {
   );
 }
 
-// Use react-native-fs for stable file operations
-import RNFS from 'react-native-fs';
-
-// Local tile server for offline MBTiles
-import TileServer from './src/TileServer';
-
 // Import GeoJSON data
 import avyPaths from './assets/layers/BCC_AvyPaths.json';
 import gatesData from './assets/layers/BCC_Gates.json';
@@ -172,54 +166,11 @@ const layerBounds = calculateBounds([avyPaths, gatesData, stagingData]);
 // Initialize MapLibre (no access token needed for free tiles)
 MapLibreGL.setAccessToken(null);
 
-// MBTiles basemap files - downloaded on first launch for offline use
-// Hosted on GitHub Releases for free, reliable download
-const MBTILES_BASEMAPS = {
-  topo: {
-    name: 'Topo',
-    file: 'CC_shaded_topo.mbtiles',
-    url: 'https://github.com/winston-network/map-ops/releases/download/v1.1.0-basemaps/CC_shaded_topo.mbtiles',
-    size: '58 MB',
-  },
-  satellite: {
-    name: 'Satellite',
-    file: 'CC_satellite_12_14.mbtiles',
-    url: 'https://github.com/winston-network/map-ops/releases/download/v1.1.0-basemaps/CC_satellite_12_14.mbtiles',
-    size: '25 MB',
-  }
+// Online basemap styles
+const BASEMAP_STYLES = {
+  topo: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
+  satellite: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
 };
-
-// Online fallback styles (used while downloading or if download fails)
-const ONLINE_FALLBACK = 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
-
-// Build a MapLibre style using local tile server
-function buildLocalTileStyle(dbName) {
-  // Use localhost URL from tile server
-  const tileUrl = TileServer.getTileUrl(dbName);
-
-  return {
-    version: 8,
-    name: 'Offline Basemap',
-    sources: {
-      'offline-basemap': {
-        type: 'raster',
-        tiles: [tileUrl],
-        tileSize: 256,
-        minzoom: 0,
-        maxzoom: 16,
-      }
-    },
-    layers: [
-      {
-        id: 'offline-basemap-layer',
-        type: 'raster',
-        source: 'offline-basemap',
-        minzoom: 0,
-        maxzoom: 22,
-      }
-    ]
-  };
-}
 
 export default function App() {
   // Layer visibility state
@@ -228,12 +179,8 @@ export default function App() {
   const [showStaging, setShowStaging] = useState(true);
   const [currentBasemap, setCurrentBasemap] = useState('topo');
 
-  // MBTiles state
-  const [mbtilesReady, setMbtilesReady] = useState(false);
-  const [mbtilesPaths, setMbtilesPaths] = useState({});
-  const [loadingMessage, setLoadingMessage] = useState('Loading offline maps...');
-  const [debugInfo, setDebugInfo] = useState('Starting...');
-  const [downloadProgress, setDownloadProgress] = useState(0);
+  // App state
+  const [isReady, setIsReady] = useState(false);
 
   // Selected feature for popup
   const [selectedFeature, setSelectedFeature] = useState(null);
@@ -249,162 +196,17 @@ export default function App() {
     }))
   ).current;
 
-  // Download MBTiles files on first launch for offline use
+  // Simple initialization - using online tiles for now
   useEffect(() => {
-    async function setupMBTiles() {
-      let debug = [];
-      const docsPath = RNFS.DocumentDirectoryPath;
-      debug.push(`Doc: ${docsPath}`);
-      setDebugInfo(debug.join('\n'));
-      setDownloadProgress(0.05); // Show some initial progress
-
-      try {
-        const paths = {};
-        let totalFiles = Object.keys(MBTILES_BASEMAPS).length;
-        let currentFile = 0;
-
-        for (const [key, basemap] of Object.entries(MBTILES_BASEMAPS)) {
-          currentFile++;
-          const destPath = `${docsPath}/${basemap.file}`;
-          debug.push(`Checking ${key}...`);
-          setDebugInfo(debug.join('\n'));
-
-          // Check if file exists and get its size
-          const fileExists = await RNFS.exists(destPath);
-          let fileSize = 0;
-          if (fileExists) {
-            const stat = await RNFS.stat(destPath);
-            fileSize = stat.size;
-          }
-
-          if (fileExists && fileSize > 1000000) {
-            // Already downloaded (and file is > 1MB, so not empty/corrupt)
-            paths[key] = destPath;
-            const sizeMB = (fileSize / 1024 / 1024).toFixed(1);
-            debug.push(`${key}: CACHED (${sizeMB}MB)`);
-            setDownloadProgress(currentFile / totalFiles);
-          } else {
-            // Download from GitHub Releases
-            debug.push(`${key}: downloading...`);
-            setDebugInfo(debug.join('\n'));
-            setLoadingMessage(`Downloading ${basemap.name} (${basemap.size})...\nThis only happens once.`);
-            setDownloadProgress((currentFile - 0.5) / totalFiles);
-
-            try {
-              console.log(`Starting download: ${basemap.url}`);
-
-              const downloadResult = await RNFS.downloadFile({
-                fromUrl: basemap.url,
-                toFile: destPath,
-                background: true,
-                discretionary: true,
-                progress: (res) => {
-                  const progress = res.bytesWritten / res.contentLength;
-                  setDownloadProgress((currentFile - 1 + progress) / totalFiles);
-                }
-              }).promise;
-
-              console.log(`Download result:`, downloadResult);
-
-              if (downloadResult.statusCode === 200) {
-                const stat = await RNFS.stat(destPath);
-                const sizeMB = (stat.size / 1024 / 1024).toFixed(1);
-                setDownloadProgress(currentFile / totalFiles);
-
-                if (stat.size > 1000000) {
-                  paths[key] = destPath;
-                  debug.push(`${key}: OK (${sizeMB}MB)`);
-                } else {
-                  debug.push(`${key}: TOO SMALL (${sizeMB}MB)`);
-                }
-              } else {
-                debug.push(`${key}: HTTP ${downloadResult.statusCode}`);
-              }
-            } catch (downloadError) {
-              debug.push(`${key}: FAILED - ${downloadError.message}`);
-              console.error(`Download error for ${key}:`, downloadError);
-            }
-          }
-          setDebugInfo(debug.join('\n'));
-        }
-
-        // Extract tiles and start static server (Wasatch app architecture)
-        const pathKeys = Object.keys(paths);
-        debug.push(`---`);
-
-        if (pathKeys.length > 0) {
-          debug.push(`Starting tile server...`);
-          setDebugInfo(debug.join('\n'));
-
-          // Start HTTP server to serve extracted tiles
-          const serverStarted = await TileServer.start();
-          if (serverStarted) {
-            debug.push(`Server: localhost:${TileServer.port}`);
-            setDebugInfo(debug.join('\n'));
-
-            // Extract tiles from each MBTiles database
-            let dbIndex = 0;
-            for (const [key, filePath] of Object.entries(paths)) {
-              dbIndex++;
-              setLoadingMessage(`Preparing ${key} tiles...\nFirst launch only - please wait.`);
-
-              // Progress callback for extraction
-              const onProgress = (progress) => {
-                // Show extraction progress (after download progress)
-                setDownloadProgress(0.5 + (dbIndex - 1 + progress) / (pathKeys.length * 2));
-              };
-
-              const opened = await TileServer.openDatabase(key, filePath, onProgress);
-              if (opened) {
-                debug.push(`${key}: READY`);
-              } else {
-                debug.push(`${key}: FAILED`);
-              }
-              setDebugInfo(debug.join('\n'));
-            }
-
-            debug.push(`Tile URL: ${TileServer.getTileUrl('topo')}`);
-          } else {
-            debug.push(`Server: FAILED TO START`);
-          }
-        } else {
-          debug.push('FALLBACK: online tiles');
-        }
-
-        setDebugInfo(debug.join('\n'));
-        setDownloadProgress(1);
-
-        // Brief delay so user sees completion
-        await new Promise(resolve => setTimeout(resolve, 500));
-
-        setMbtilesPaths(paths);
-        setMbtilesReady(true);
-        setLoadingMessage('');
-      } catch (error) {
-        debug.push(`ERROR: ${error.message}`);
-        setDebugInfo(debug.join('\n'));
-        console.error('Setup error:', error);
-        setLoadingMessage(`Error: ${error.message}`);
-        setTimeout(() => {
-          setMbtilesReady(true);
-          setLoadingMessage('');
-        }, 3000);
-      }
-    }
-
-    setupMBTiles();
+    // Brief loading animation then show map
+    const timer = setTimeout(() => {
+      setIsReady(true);
+    }, 1500);
+    return () => clearTimeout(timer);
   }, []);
 
-  // Get current basemap style
-  const getMapStyle = () => {
-    if (mbtilesReady && mbtilesPaths[currentBasemap] && TileServer.isRunning) {
-      // Use local tile server
-      return buildLocalTileStyle(currentBasemap);
-    }
-    return ONLINE_FALLBACK;
-  };
-
-  const mapStyle = getMapStyle();
+  // Get current basemap style (online for now)
+  const mapStyle = BASEMAP_STYLES[currentBasemap];
 
   return (
     <View style={styles.container}>
@@ -472,7 +274,7 @@ export default function App() {
       </View>
 
       {/* Loading Screen with Snow Animation */}
-      {loadingMessage ? (
+      {!isReady ? (
         <View style={styles.loadingContainer}>
           {/* Falling snowflakes */}
           {snowflakes.map(flake => (
@@ -487,21 +289,20 @@ export default function App() {
 
           {/* Centered content */}
           <View style={styles.loadingContent}>
-            {/* Snow-filled MAP-OPS text as progress indicator */}
-            <SnowFillText progress={downloadProgress} text="MAP-OPS" />
+            {/* Snow-filled MAP-OPS text */}
+            <SnowFillText progress={1} text="MAP-OPS" />
 
             {/* Status message below */}
-            <Text style={styles.loadingText}>{loadingMessage}</Text>
+            <Text style={styles.loadingText}>Loading...</Text>
           </View>
         </View>
       ) : null}
 
       {/* MapLibre Map */}
       <MapLibreGL.MapView
-        key={`${currentBasemap}-${mbtilesReady}`}
+        key={currentBasemap}
         style={styles.map}
-        styleURL={typeof mapStyle === 'string' ? mapStyle : undefined}
-        styleJSON={typeof mapStyle === 'object' ? JSON.stringify(mapStyle) : undefined}
+        styleURL={mapStyle}
         logoEnabled={false}
         attributionEnabled={false}
       >
@@ -602,14 +403,6 @@ export default function App() {
           </View>
         </TouchableOpacity>
       )}
-
-      {/* Debug Panel - always visible for basemap debugging */}
-      {debugInfo ? (
-        <View style={styles.debugPanel}>
-          <Text style={styles.debugTitle}>BASEMAP STATUS:</Text>
-          <Text style={styles.debugText}>{debugInfo}</Text>
-        </View>
-      ) : null}
 
       {/* Footer */}
       <View style={styles.footer}>
@@ -835,27 +628,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     textAlign: 'center',
     marginTop: 4,
-  },
-  debugPanel: {
-    backgroundColor: 'rgba(0, 0, 0, 0.9)',
-    padding: 10,
-    marginHorizontal: 8,
-    marginVertical: 4,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#00ff00',
-  },
-  debugTitle: {
-    color: '#00ff00',
-    fontSize: 11,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  debugText: {
-    color: '#00ff00',
-    fontSize: 10,
-    fontFamily: 'monospace',
-    lineHeight: 14,
   },
   footer: {
     backgroundColor: '#1a1a2e',
