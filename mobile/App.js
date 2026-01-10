@@ -504,25 +504,23 @@ export default function App() {
         <MapLibreGL.UserLocation visible={true} />
 
         {/* Avalanche Paths - Light blue polygons */}
-        {showAvyPaths && (
-          <MapLibreGL.ShapeSource id="avyPaths" shape={avyPaths}>
-            <MapLibreGL.FillLayer
-              id="avyPathsFill"
-              style={{
-                fillColor: '#7ec8ff',
-                fillOpacity: 0.3,
-              }}
-            />
-            <MapLibreGL.LineLayer
-              id="avyPathsLine"
-              style={{
-                lineColor: '#7ec8ff',
-                lineWidth: 2,
-                lineOpacity: 0.8,
-              }}
-            />
-          </MapLibreGL.ShapeSource>
-        )}
+        <MapLibreGL.ShapeSource id="avyPaths" shape={avyPaths}>
+          <MapLibreGL.FillLayer
+            id="avyPathsFill"
+            style={{
+              fillColor: '#7ec8ff',
+              fillOpacity: showAvyPaths ? 0.3 : 0,
+            }}
+          />
+          <MapLibreGL.LineLayer
+            id="avyPathsLine"
+            style={{
+              lineColor: '#7ec8ff',
+              lineWidth: 2,
+              lineOpacity: showAvyPaths ? 0.8 : 0,
+            }}
+          />
+        </MapLibreGL.ShapeSource>
 
         {/* Gates - Custom icon markers */}
         {showGates && gatesData.features.map(feature => (
