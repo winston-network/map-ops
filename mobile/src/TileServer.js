@@ -9,7 +9,7 @@
  * This uses the same GCDWebServer that Wasatch Backcountry Skiing app uses.
  */
 
-import StaticServer from 'react-native-static-server';
+import StaticServer from '@dr.pogodin/react-native-static-server';
 import SQLite from 'react-native-sqlite-storage';
 import RNFS from 'react-native-fs';
 
@@ -167,8 +167,10 @@ class TileServer {
       }
 
       // Create static server pointing to tiles directory
-      // GCDWebServer on iOS, NanoHttpd on Android
-      this.server = new StaticServer(this.port, this.tilesDir, {
+      // Uses Lighttpd on iOS (properly serves binary files)
+      this.server = new StaticServer({
+        port: this.port,
+        fileDir: this.tilesDir,
         localOnly: true,
         keepAlive: true,
       });
@@ -176,7 +178,7 @@ class TileServer {
       // Start the server
       const url = await this.server.start();
       this.isRunning = true;
-      console.log(`Tile server (GCDWebServer) running at ${url}`);
+      console.log(`Tile server running at ${url}`);
       return true;
 
     } catch (error) {
