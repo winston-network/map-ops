@@ -66,18 +66,20 @@ const ONLINE_FALLBACK = 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style
 
 // Build a MapLibre style using local PMTiles file
 function buildPMTilesStyle(pmtilesPath) {
-  // Remove file:// prefix if present, pmtiles:// protocol adds its own
+  // Try different URL formats for PMTiles
   const cleanPath = pmtilesPath.replace('file://', '');
-  console.log('Building PMTiles style with path:', cleanPath);
 
+  // Format 1: pmtiles:// with tiles array (some implementations need this)
   return {
     version: 8,
     name: 'Offline Basemap',
     sources: {
       'offline-basemap': {
         type: 'raster',
-        url: `pmtiles://${cleanPath}`,
+        tiles: [`pmtiles://${cleanPath}/{z}/{x}/{y}`],
         tileSize: 256,
+        minzoom: 0,
+        maxzoom: 16,
       }
     },
     layers: [
@@ -156,7 +158,10 @@ export default function App() {
         const pathKeys = Object.keys(paths);
         debug.push(`Ready: ${pathKeys.length > 0 ? pathKeys.join(', ') : 'NONE'}`);
         if (paths.topo) {
-          debug.push(`Style: pmtiles://${paths.topo.replace('file://', '')}`);
+          const tilePath = paths.topo.replace('file://', '');
+          debug.push(`Tiles: pmtiles://${tilePath}/{z}/{x}/{y}`);
+        } else {
+          debug.push('Using online fallback');
         }
         setDebugInfo(debug.join('\n'));
 
