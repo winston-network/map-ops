@@ -2,7 +2,7 @@
   "expo": {
     "name": "MAP-OPS",
     "slug": "mobile",
-    "version": "1.4.0",
+    "version": "1.5.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -15,7 +15,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.winstonnetwork.mapops",
-      "buildNumber": "2",
+      "buildNumber": "3",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSLocationWhenInUseUsageDescription": "MAP-OPS needs your location to show your position on the map.",
@@ -29,7 +29,7 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.winstonnetwork.mapops",
-      "versionCode": 3,
+      "versionCode": 4,
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",

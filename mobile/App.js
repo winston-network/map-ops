@@ -1,7 +1,9 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, View, Text, TouchableOpacity, Image } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import MapLibreGL from '@maplibre/maplibre-react-native';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import * as FileSystem from 'expo-file-system';
+import { Asset } from 'expo-asset';
 
 // Import GeoJSON data
 import avyPaths from './assets/layers/BCC_AvyPaths.json';
@@ -42,29 +44,112 @@ const layerBounds = calculateBounds([avyPaths, gatesData, stagingData]);
 // Initialize MapLibre (no access token needed for free tiles)
 MapLibreGL.setAccessToken(null);
 
-// Basemap styles using external style URLs (more reliable than inline JSON)
-const BASEMAPS = {
+// PMTiles basemap files (bundled with app for offline use)
+const PMTILES_BASEMAPS = {
   topo: {
     name: 'Topo',
-    // Carto Voyager - clean street/topo style (free, no API key needed)
-    styleURL: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
+    file: 'CC_shaded_topo.pmtiles',
+    asset: require('./assets/basemap/CC_shaded_topo.pmtiles'),
   },
   satellite: {
     name: 'Satellite',
-    // Carto Dark Matter as satellite alternative (free, no API key needed)
-    // Note: True satellite requires paid API (MapTiler, Mapbox, etc.)
-    styleURL: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+    file: 'CC_satellite_12_14.pmtiles',
+    asset: require('./assets/basemap/CC_satellite_12_14.pmtiles'),
   }
 };
+
+// Online fallback styles (used if PMTiles not ready)
+const ONLINE_FALLBACK = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
+
+// Build a MapLibre style using local PMTiles file
+function buildPMTilesStyle(pmtilesPath) {
+  return {
+    version: 8,
+    name: 'Offline Basemap',
+    sources: {
+      'offline-basemap': {
+        type: 'raster',
+        url: `pmtiles://${pmtilesPath}`,
+        tileSize: 256,
+      }
+    },
+    layers: [
+      {
+        id: 'offline-basemap-layer',
+        type: 'raster',
+        source: 'offline-basemap',
+        minzoom: 0,
+        maxzoom: 22,
+      }
+    ]
+  };
+}
 
 export default function App() {
   // Layer visibility state
   const [showAvyPaths, setShowAvyPaths] = useState(true);
   const [showGates, setShowGates] = useState(true);
   const [showStaging, setShowStaging] = useState(true);
-  const [currentBasemap, setCurrentBasemap] = useState('satellite');
+  const [currentBasemap, setCurrentBasemap] = useState('topo');
 
-  const basemapStyleURL = BASEMAPS[currentBasemap].styleURL;
+  // PMTiles state
+  const [pmtilesReady, setPmtilesReady] = useState(false);
+  const [pmtilesPaths, setPmtilesPaths] = useState({});
+  const [loadingMessage, setLoadingMessage] = useState('Loading offline maps...');
+
+  // Copy PMTiles files to document directory on first launch
+  useEffect(() => {
+    async function setupPMTiles() {
+      try {
+        const paths = {};
+
+        for (const [key, basemap] of Object.entries(PMTILES_BASEMAPS)) {
+          setLoadingMessage(`Loading ${basemap.name} basemap...`);
+
+          const destPath = `${FileSystem.documentDirectory}${basemap.file}`;
+
+          // Check if already copied
+          const fileInfo = await FileSystem.getInfoAsync(destPath);
+
+          if (!fileInfo.exists) {
+            // Load asset and copy to document directory
+            const asset = Asset.fromModule(basemap.asset);
+            await asset.downloadAsync();
+
+            if (asset.localUri) {
+              await FileSystem.copyAsync({
+                from: asset.localUri,
+                to: destPath,
+              });
+            }
+          }
+
+          paths[key] = destPath;
+        }
+
+        setPmtilesPaths(paths);
+        setPmtilesReady(true);
+        setLoadingMessage('');
+      } catch (error) {
+        console.error('Error setting up PMTiles:', error);
+        setLoadingMessage('Error loading offline maps. Using online fallback.');
+        // Continue with online fallback
+        setPmtilesReady(true);
+      }
+    }
+
+    setupPMTiles();
+  }, []);
+
+  // Get current basemap style
+  const getMapStyle = () => {
+    if (pmtilesReady && pmtilesPaths[currentBasemap]) {
+      return buildPMTilesStyle(pmtilesPaths[currentBasemap]);
+    }
+    return ONLINE_FALLBACK;
+  };
+
+  const mapStyle = getMapStyle();
 
   return (
     <View style={styles.container}>
@@ -131,11 +216,20 @@ export default function App() {
         </TouchableOpacity>
       </View>
 
+      {/* Loading Indicator */}
+      {loadingMessage ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#7ec8ff" />
+          <Text style={styles.loadingText}>{loadingMessage}</Text>
+        </View>
+      ) : null}
+
       {/* MapLibre Map */}
       <MapLibreGL.MapView
-        key={currentBasemap}
+        key={`${currentBasemap}-${pmtilesReady}`}
         style={styles.map}
-        styleURL={basemapStyleURL}
+        styleURL={typeof mapStyle === 'string' ? mapStyle : undefined}
+        styleJSON={typeof mapStyle === 'object' ? JSON.stringify(mapStyle) : undefined}
         logoEnabled={false}
         attributionEnabled={false}
       >
@@ -216,6 +310,23 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#1a1a2e',
+  },
+  loadingContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(26, 26, 46, 0.9)',
+    zIndex: 1000,
+  },
+  loadingText: {
+    color: '#7ec8ff',
+    fontSize: 14,
+    marginTop: 12,
+    fontWeight: '600',
   },
   header: {
     paddingTop: 50,
