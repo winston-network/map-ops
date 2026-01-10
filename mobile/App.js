@@ -190,19 +190,19 @@ const ONLINE_FALLBACK = 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style
 
 // Build a MapLibre style using local MBTiles file
 function buildMBTilesStyle(mbtilesPath) {
-  // MBTiles uses mbtiles:// protocol in MapLibre Native
+  // Try different formats for MBTiles URL
+  // Remove file:// prefix, mbtiles:// needs the raw path
   const cleanPath = mbtilesPath.replace('file://', '');
 
+  // Try format: mbtiles:// with url property (not tiles array)
   return {
     version: 8,
     name: 'Offline Basemap',
     sources: {
       'offline-basemap': {
         type: 'raster',
-        tiles: [`mbtiles://${cleanPath}/{z}/{x}/{y}`],
+        url: `mbtiles://${cleanPath}`,
         tileSize: 256,
-        minzoom: 0,
-        maxzoom: 16,
       }
     },
     layers: [
