@@ -42,63 +42,18 @@ const layerBounds = calculateBounds([avyPaths, gatesData, stagingData]);
 // Initialize MapLibre (no access token needed for free tiles)
 MapLibreGL.setAccessToken(null);
 
-// Basemap styles (online sources for now - offline PMTiles coming soon)
+// Basemap styles using external style URLs (more reliable than inline JSON)
 const BASEMAPS = {
   topo: {
     name: 'Topo',
-    style: {
-      version: 8,
-      name: 'OpenTopoMap',
-      glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
-      sources: {
-        'opentopomap': {
-          type: 'raster',
-          tiles: [
-            'https://a.tile.opentopomap.org/{z}/{x}/{y}.png',
-            'https://b.tile.opentopomap.org/{z}/{x}/{y}.png',
-            'https://c.tile.opentopomap.org/{z}/{x}/{y}.png'
-          ],
-          tileSize: 256,
-          attribution: '© OpenTopoMap contributors'
-        }
-      },
-      layers: [
-        {
-          id: 'opentopomap-layer',
-          type: 'raster',
-          source: 'opentopomap',
-          minzoom: 0,
-          maxzoom: 17
-        }
-      ]
-    }
+    // Carto Voyager - clean street/topo style (free, no API key needed)
+    styleURL: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
   },
   satellite: {
     name: 'Satellite',
-    style: {
-      version: 8,
-      name: 'ESRI Satellite',
-      glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
-      sources: {
-        'esri-satellite': {
-          type: 'raster',
-          tiles: [
-            'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
-          ],
-          tileSize: 256,
-          attribution: '© Esri'
-        }
-      },
-      layers: [
-        {
-          id: 'esri-satellite-layer',
-          type: 'raster',
-          source: 'esri-satellite',
-          minzoom: 0,
-          maxzoom: 19
-        }
-      ]
-    }
+    // Carto Dark Matter as satellite alternative (free, no API key needed)
+    // Note: True satellite requires paid API (MapTiler, Mapbox, etc.)
+    styleURL: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
   }
 };
 
@@ -109,7 +64,7 @@ export default function App() {
   const [showStaging, setShowStaging] = useState(true);
   const [currentBasemap, setCurrentBasemap] = useState('satellite');
 
-  const basemapStyle = BASEMAPS[currentBasemap].style;
+  const basemapStyleURL = BASEMAPS[currentBasemap].styleURL;
 
   return (
     <View style={styles.container}>
@@ -180,7 +135,7 @@ export default function App() {
       <MapLibreGL.MapView
         key={currentBasemap}
         style={styles.map}
-        styleJSON={JSON.stringify(basemapStyle)}
+        styleURL={basemapStyleURL}
         logoEnabled={false}
         attributionEnabled={false}
       >
