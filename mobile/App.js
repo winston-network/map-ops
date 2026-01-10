@@ -268,7 +268,7 @@ export default function App() {
 
       {/* MapLibre Map */}
       <MapLibreGL.MapView
-        key={`${currentBasemap}-${pmtilesReady}`}
+        key={`${currentBasemap}-${mbtilesReady}`}
         style={styles.map}
         styleURL={typeof mapStyle === 'string' ? mapStyle : undefined}
         styleJSON={typeof mapStyle === 'object' ? JSON.stringify(mapStyle) : undefined}
