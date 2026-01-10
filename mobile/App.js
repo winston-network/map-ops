@@ -1,7 +1,92 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, View, Text, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Image, ActivityIndicator, Animated, Dimensions } from 'react-native';
 import MapLibreGL from '@maplibre/maplibre-react-native';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+// Snowflake component for loading animation
+function Snowflake({ delay, duration, startX, size }) {
+  const fallAnim = useRef(new Animated.Value(-50)).current;
+  const swayAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const fall = () => {
+      fallAnim.setValue(-50);
+      Animated.timing(fallAnim, {
+        toValue: SCREEN_HEIGHT + 50,
+        duration: duration,
+        delay: delay,
+        useNativeDriver: true,
+      }).start(() => fall());
+    };
+
+    const sway = () => {
+      Animated.sequence([
+        Animated.timing(swayAnim, {
+          toValue: 20,
+          duration: duration / 4,
+          useNativeDriver: true,
+        }),
+        Animated.timing(swayAnim, {
+          toValue: -20,
+          duration: duration / 4,
+          useNativeDriver: true,
+        }),
+      ]).start(() => sway());
+    };
+
+    fall();
+    sway();
+  }, []);
+
+  return (
+    <Animated.Text
+      style={{
+        position: 'absolute',
+        left: startX,
+        fontSize: size,
+        color: '#ffffff',
+        opacity: 0.8,
+        transform: [
+          { translateY: fallAnim },
+          { translateX: swayAnim },
+        ],
+      }}
+    >
+      ❄
+    </Animated.Text>
+  );
+}
+
+// Snow accumulation component
+function SnowAccumulation({ progress }) {
+  // Height grows based on download progress (0 to ~100px)
+  const height = Math.min(progress * 150, 150);
+
+  return (
+    <View style={{
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      height: height,
+      backgroundColor: '#e8f4ff',
+      borderTopLeftRadius: height > 20 ? 100 : 0,
+      borderTopRightRadius: height > 20 ? 100 : 0,
+    }}>
+      {/* Snow bumps */}
+      {height > 30 && (
+        <>
+          <View style={{ position: 'absolute', top: -15, left: '20%', width: 60, height: 30, backgroundColor: '#e8f4ff', borderRadius: 30 }} />
+          <View style={{ position: 'absolute', top: -10, left: '50%', width: 80, height: 25, backgroundColor: '#e8f4ff', borderRadius: 25 }} />
+          <View style={{ position: 'absolute', top: -12, left: '75%', width: 50, height: 28, backgroundColor: '#e8f4ff', borderRadius: 28 }} />
+        </>
+      )}
+    </View>
+  );
+}
+
 import * as FileSystem from 'expo-file-system';
 
 // Import GeoJSON data
@@ -104,6 +189,18 @@ export default function App() {
   const [mbtilesPaths, setMbtilesPaths] = useState({});
   const [loadingMessage, setLoadingMessage] = useState('Loading offline maps...');
   const [debugInfo, setDebugInfo] = useState('Starting...');
+  const [downloadProgress, setDownloadProgress] = useState(0);
+
+  // Generate snowflakes for loading animation
+  const snowflakes = useRef(
+    Array.from({ length: 30 }, (_, i) => ({
+      id: i,
+      delay: Math.random() * 3000,
+      duration: 3000 + Math.random() * 4000,
+      startX: Math.random() * SCREEN_WIDTH,
+      size: 12 + Math.random() * 20,
+    }))
+  ).current;
 
   // Download MBTiles files on first launch for offline use
   useEffect(() => {
@@ -132,6 +229,8 @@ export default function App() {
             debug.push(`${key}: downloading...`);
             setDebugInfo(debug.join('\n'));
             setLoadingMessage(`Downloading ${basemap.name} (${basemap.size})...`);
+            // Update progress (0.5 per basemap)
+            setDownloadProgress(prev => prev + 0.1);
 
             try {
               const downloadResult = await FileSystem.downloadAsync(
@@ -142,6 +241,7 @@ export default function App() {
               if (downloadResult.status === 200) {
                 const newFileInfo = await FileSystem.getInfoAsync(destPath);
                 const sizeMB = (newFileInfo.size / 1024 / 1024).toFixed(1);
+                setDownloadProgress(prev => prev + 0.4); // More progress after download
 
                 if (newFileInfo.size > 1000000) {
                   paths[key] = destPath;
@@ -258,11 +358,32 @@ export default function App() {
         </TouchableOpacity>
       </View>
 
-      {/* Loading Indicator */}
+      {/* Loading Screen with Snow Animation */}
       {loadingMessage ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#7ec8ff" />
-          <Text style={styles.loadingText}>{loadingMessage}</Text>
+          {/* Falling snowflakes */}
+          {snowflakes.map(flake => (
+            <Snowflake
+              key={flake.id}
+              delay={flake.delay}
+              duration={flake.duration}
+              startX={flake.startX}
+              size={flake.size}
+            />
+          ))}
+
+          {/* Snow accumulation at bottom */}
+          <SnowAccumulation progress={downloadProgress} />
+
+          {/* Loading text */}
+          <View style={styles.loadingContent}>
+            <Image
+              source={require('./assets/icons/snowflake.png')}
+              style={styles.loadingLogo}
+            />
+            <Text style={styles.loadingTitle}>MAP-OPS</Text>
+            <Text style={styles.loadingText}>{loadingMessage}</Text>
+          </View>
         </View>
       ) : null}
 
@@ -364,16 +485,35 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
+    overflow: 'hidden',
     backgroundColor: 'rgba(26, 26, 46, 0.9)',
     zIndex: 1000,
   },
-  loadingText: {
+  loadingContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingLogo: {
+    width: 80,
+    height: 80,
+    marginBottom: 16,
+  },
+  loadingTitle: {
+    fontSize: 28,
+    fontWeight: '800',
     color: '#7ec8ff',
+    letterSpacing: 3,
+    marginBottom: 20,
+    textShadowColor: 'rgba(126, 200, 255, 0.8)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 15,
+  },
+  loadingText: {
+    color: '#ffffff',
     fontSize: 14,
-    marginTop: 12,
     fontWeight: '600',
+    textAlign: 'center',
   },
   header: {
     paddingTop: 50,
