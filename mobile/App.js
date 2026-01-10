@@ -127,7 +127,8 @@ function SnowFillText({ progress, text }) {
   );
 }
 
-import * as FileSystem from 'expo-file-system';
+// Use legacy API to avoid deprecation errors in production builds
+import * as FileSystem from 'expo-file-system/legacy';
 
 // Import GeoJSON data
 import avyPaths from './assets/layers/BCC_AvyPaths.json';
