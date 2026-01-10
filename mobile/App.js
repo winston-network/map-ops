@@ -333,10 +333,10 @@ export default function App() {
           debug.push(`Starting tile server...`);
           setDebugInfo(debug.join('\n'));
 
-          // Initialize tile extractor
+          // Start HTTP server to serve extracted tiles
           const serverStarted = await TileServer.start();
           if (serverStarted) {
-            debug.push(`Tiles: ${TileServer.tilesDir}`);
+            debug.push(`Server: localhost:${TileServer.port}`);
             setDebugInfo(debug.join('\n'));
 
             // Extract tiles from each MBTiles database

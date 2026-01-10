@@ -1,14 +1,15 @@
 /**
- * Tile Extractor for MBTiles - File-based approach
+ * Tile Server for MBTiles - HTTP Server + File-based approach
  *
  * How it works:
- * 1. Read tiles from MBTiles (SQLite) database
- * 2. Extract tiles to individual files on disk (z/x/y.png)
- * 3. MapLibre reads tiles directly from filesystem via file:// URLs
+ * 1. Extract tiles from MBTiles (SQLite) to individual PNG files on first launch
+ * 2. Run HTTP server on localhost to serve those files
+ * 3. MapLibre requests tiles via http://localhost:PORT/dbname/z/x/y.png
  *
- * No HTTP server needed - simplest possible approach!
+ * This combines the reliability of file extraction with HTTP server for iOS compatibility.
  */
 
+import { BridgeServer } from 'react-native-http-bridge-refurbished';
 import SQLite from 'react-native-sqlite-storage';
 import RNFS from 'react-native-fs';
 
@@ -16,6 +17,8 @@ SQLite.enablePromise(true);
 
 class TileServer {
   constructor() {
+    this.server = null;
+    this.port = 9876;
     this.isRunning = false;
     this.tilesDir = `${RNFS.DocumentDirectoryPath}/tiles`;
     this.extractedDbs = new Set();
@@ -148,17 +151,81 @@ class TileServer {
   }
 
   /**
-   * "Start" the server (just marks as ready - no actual server needed)
+   * Start the HTTP server to serve extracted tiles
    */
   async start() {
-    // Ensure tiles directory exists
-    const dirExists = await RNFS.exists(this.tilesDir);
-    if (!dirExists) {
-      await RNFS.mkdir(this.tilesDir);
+    if (this.isRunning) {
+      console.log('Tile server already running');
+      return true;
     }
-    this.isRunning = true;
-    console.log(`Tile extractor ready. Tiles dir: ${this.tilesDir}`);
-    return true;
+
+    try {
+      // Ensure tiles directory exists
+      const dirExists = await RNFS.exists(this.tilesDir);
+      if (!dirExists) {
+        await RNFS.mkdir(this.tilesDir);
+      }
+
+      this.server = new BridgeServer('http_service', true);
+
+      // Serve tile requests: /dbname/z/x/y.png
+      this.server.get('/:db/:z/:x/:y.png', async (req, res) => {
+        const { db, z, x, y } = req.params;
+        const tilePath = `${this.tilesDir}/${db}/${z}/${x}/${y}.png`;
+
+        try {
+          const exists = await RNFS.exists(tilePath);
+          if (exists) {
+            // Read file as base64
+            const base64Data = await RNFS.readFile(tilePath, 'base64');
+            // Send as image/png with base64 data
+            res.send(200, 'image/png', base64Data);
+          } else {
+            res.send(404, 'text/plain', 'Tile not found');
+          }
+        } catch (error) {
+          console.error('Tile serve error:', error);
+          res.send(500, 'text/plain', error.message);
+        }
+      });
+
+      // Also handle requests without .png extension
+      this.server.get('/:db/:z/:x/:y', async (req, res) => {
+        const { db, z, x, y } = req.params;
+        const tilePath = `${this.tilesDir}/${db}/${z}/${x}/${y}.png`;
+
+        try {
+          const exists = await RNFS.exists(tilePath);
+          if (exists) {
+            const base64Data = await RNFS.readFile(tilePath, 'base64');
+            res.send(200, 'image/png', base64Data);
+          } else {
+            res.send(404, 'text/plain', 'Tile not found');
+          }
+        } catch (error) {
+          console.error('Tile serve error:', error);
+          res.send(500, 'text/plain', error.message);
+        }
+      });
+
+      // Health check
+      this.server.get('/health', (req, res) => {
+        res.send(200, 'application/json', JSON.stringify({
+          status: 'ok',
+          tilesDir: this.tilesDir,
+          extracted: Array.from(this.extractedDbs)
+        }));
+      });
+
+      await this.server.listen(this.port);
+      this.isRunning = true;
+      console.log(`Tile server running on http://localhost:${this.port}`);
+      return true;
+
+    } catch (error) {
+      console.error('Failed to start tile server:', error);
+      return false;
+    }
   }
 
   /**
@@ -179,7 +246,7 @@ class TileServer {
         return false;
       }
 
-      console.log(`${name}: ready to serve via file://`);
+      console.log(`${name}: ready to serve via HTTP`);
       return true;
 
     } catch (error) {
@@ -190,25 +257,21 @@ class TileServer {
 
   /**
    * Get tile URL template for MapLibre
-   * Uses file:// protocol to read directly from filesystem
    */
   getTileUrl(dbName) {
-    return `file://${this.tilesDir}/${dbName}/{z}/{x}/{y}.png`;
+    return `http://localhost:${this.port}/${dbName}/{z}/{x}/{y}.png`;
   }
 
   /**
-   * Get the port (for compatibility - not actually used)
-   */
-  get port() {
-    return 0; // No server
-  }
-
-  /**
-   * Stop (no-op since no server)
+   * Stop the server
    */
   async stop() {
+    if (this.server) {
+      this.server.stop();
+      this.server = null;
+    }
     this.isRunning = false;
-    console.log('Tile extractor stopped');
+    console.log('Tile server stopped');
   }
 
   /**
