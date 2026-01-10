@@ -466,8 +466,8 @@ export default function App() {
           style={[styles.toggleBtn, showStaging && styles.toggleBtnActive]}
           onPress={() => setShowStaging(!showStaging)}
         >
-          <Text style={styles.toggleText}>Staging</Text>
-          <Image source={require('./assets/icons/BCC_Staging.png')} style={styles.toggleIcon} />
+          <Text style={styles.toggleText}>Mile</Text>
+          <View style={styles.toggleCircle} />
         </TouchableOpacity>
       </View>
 
@@ -567,20 +567,23 @@ export default function App() {
           </MapLibreGL.PointAnnotation>
         ))}
 
-        {/* Staging Areas - Custom icon markers */}
+        {/* Staging Areas - Orange circles with mile marker */}
         {showStaging && stagingData.features.map(feature => (
           <MapLibreGL.PointAnnotation
             key={`staging-${feature.id}`}
             id={`staging-${feature.id}`}
             coordinate={feature.geometry.coordinates}
+            anchor={{ x: 0.5, y: 0.5 }}
             onSelected={() => setSelectedFeature({
               type: 'Staging Area',
-              description: feature.properties.description || 'Staging Area',
+              description: `Mile Marker ${feature.properties.description}` || 'Staging Area',
               coordinates: feature.geometry.coordinates,
             })}
           >
-            <Image source={require('./assets/icons/BCC_Staging.png')} style={styles.mapIcon} />
-            <MapLibreGL.Callout title={feature.properties.description || 'Staging Area'} />
+            <View style={styles.mileMarker}>
+              <Text style={styles.mileMarkerText}>{feature.properties.description || '?'}</Text>
+            </View>
+            <MapLibreGL.Callout title={`Mile ${feature.properties.description}`} />
           </MapLibreGL.PointAnnotation>
         ))}
       </MapLibreGL.MapView>
@@ -751,6 +754,13 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     marginLeft: 4,
   },
+  toggleCircle: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#f97316',
+    marginLeft: 4,
+  },
   toggleText: {
     color: '#ffffff',
     fontSize: 11,
@@ -762,6 +772,26 @@ const styles = StyleSheet.create({
   mapIcon: {
     width: 32,
     height: 32,
+  },
+  mileMarker: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#f97316',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#ffffff',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 5,
+  },
+  mileMarkerText: {
+    color: '#ffffff',
+    fontSize: 10,
+    fontWeight: '800',
   },
   popupOverlay: {
     position: 'absolute',
