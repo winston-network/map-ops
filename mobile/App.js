@@ -43,20 +43,19 @@ const layerBounds = calculateBounds([avyPaths, gatesData, stagingData]);
 // Initialize MapLibre (no access token needed for free tiles)
 MapLibreGL.setAccessToken(null);
 
-// PMTiles basemap files - downloaded on first launch for offline use
+// MBTiles basemap files - downloaded on first launch for offline use
 // Hosted on GitHub Releases for free, reliable download
-const PMTILES_BASEMAPS = {
+const MBTILES_BASEMAPS = {
   topo: {
     name: 'Topo',
-    file: 'CC_shaded_topo.pmtiles',
-    // GitHub Release URL - update this when you create the release
-    url: 'https://github.com/winston-network/map-ops/releases/download/v1.0.0-basemaps/CC_shaded_topo.pmtiles',
+    file: 'CC_shaded_topo.mbtiles',
+    url: 'https://github.com/winston-network/map-ops/releases/download/v1.1.0-basemaps/CC_shaded_topo.mbtiles',
     size: '58 MB',
   },
   satellite: {
     name: 'Satellite',
-    file: 'CC_satellite_12_14.pmtiles',
-    url: 'https://github.com/winston-network/map-ops/releases/download/v1.0.0-basemaps/CC_satellite_12_14.pmtiles',
+    file: 'CC_satellite_12_14.mbtiles',
+    url: 'https://github.com/winston-network/map-ops/releases/download/v1.1.0-basemaps/CC_satellite_12_14.mbtiles',
     size: '25 MB',
   }
 };
@@ -64,19 +63,18 @@ const PMTILES_BASEMAPS = {
 // Online fallback styles (used while downloading or if download fails)
 const ONLINE_FALLBACK = 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
 
-// Build a MapLibre style using local PMTiles file
-function buildPMTilesStyle(pmtilesPath) {
-  // Try different URL formats for PMTiles
-  const cleanPath = pmtilesPath.replace('file://', '');
+// Build a MapLibre style using local MBTiles file
+function buildMBTilesStyle(mbtilesPath) {
+  // MBTiles uses mbtiles:// protocol in MapLibre Native
+  const cleanPath = mbtilesPath.replace('file://', '');
 
-  // Format 1: pmtiles:// with tiles array (some implementations need this)
   return {
     version: 8,
     name: 'Offline Basemap',
     sources: {
       'offline-basemap': {
         type: 'raster',
-        tiles: [`pmtiles://${cleanPath}/{z}/{x}/{y}`],
+        tiles: [`mbtiles://${cleanPath}/{z}/{x}/{y}`],
         tileSize: 256,
         minzoom: 0,
         maxzoom: 16,
@@ -101,15 +99,15 @@ export default function App() {
   const [showStaging, setShowStaging] = useState(true);
   const [currentBasemap, setCurrentBasemap] = useState('topo');
 
-  // PMTiles state
-  const [pmtilesReady, setPmtilesReady] = useState(false);
-  const [pmtilesPaths, setPmtilesPaths] = useState({});
+  // MBTiles state
+  const [mbtilesReady, setMbtilesReady] = useState(false);
+  const [mbtilesPaths, setMbtilesPaths] = useState({});
   const [loadingMessage, setLoadingMessage] = useState('Loading offline maps...');
   const [debugInfo, setDebugInfo] = useState('Starting...');
 
-  // Download PMTiles files on first launch for offline use
+  // Download MBTiles files on first launch for offline use
   useEffect(() => {
-    async function setupPMTiles() {
+    async function setupMBTiles() {
       let debug = [];
       debug.push(`Doc dir: ${Paths.document}`);
       setDebugInfo(debug.join('\n'));
@@ -117,7 +115,7 @@ export default function App() {
       try {
         const paths = {};
 
-        for (const [key, basemap] of Object.entries(PMTILES_BASEMAPS)) {
+        for (const [key, basemap] of Object.entries(MBTILES_BASEMAPS)) {
           const file = new File(Paths.document, basemap.file);
           debug.push(`Checking ${key}...`);
           setDebugInfo(debug.join('\n'));
@@ -159,29 +157,29 @@ export default function App() {
         debug.push(`Ready: ${pathKeys.length > 0 ? pathKeys.join(', ') : 'NONE'}`);
         if (paths.topo) {
           const tilePath = paths.topo.replace('file://', '');
-          debug.push(`Tiles: pmtiles://${tilePath}/{z}/{x}/{y}`);
+          debug.push(`Tiles: mbtiles://${tilePath}`);
         } else {
           debug.push('Using online fallback');
         }
         setDebugInfo(debug.join('\n'));
 
-        setPmtilesPaths(paths);
-        setPmtilesReady(true);
+        setMbtilesPaths(paths);
+        setMbtilesReady(true);
         setLoadingMessage('');
       } catch (error) {
         setDebugInfo(`ERROR: ${error.message}`);
         setLoadingMessage('');
-        setPmtilesReady(true);
+        setMbtilesReady(true);
       }
     }
 
-    setupPMTiles();
+    setupMBTiles();
   }, []);
 
   // Get current basemap style
   const getMapStyle = () => {
-    if (pmtilesReady && pmtilesPaths[currentBasemap]) {
-      return buildPMTilesStyle(pmtilesPaths[currentBasemap]);
+    if (mbtilesReady && mbtilesPaths[currentBasemap]) {
+      return buildMBTilesStyle(mbtilesPaths[currentBasemap]);
     }
     return ONLINE_FALLBACK;
   };
