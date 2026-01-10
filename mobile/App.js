@@ -127,8 +127,11 @@ function SnowFillText({ progress, text }) {
   );
 }
 
-// Use react-native-fs for stable file operations (no Expo deprecation issues)
+// Use react-native-fs for stable file operations
 import RNFS from 'react-native-fs';
+
+// Local tile server for offline MBTiles
+import TileServer from './src/TileServer';
 
 // Import GeoJSON data
 import avyPaths from './assets/layers/BCC_AvyPaths.json';
@@ -189,21 +192,21 @@ const MBTILES_BASEMAPS = {
 // Online fallback styles (used while downloading or if download fails)
 const ONLINE_FALLBACK = 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
 
-// Build a MapLibre style using local MBTiles file
-function buildMBTilesStyle(mbtilesPath) {
-  // Try different formats for MBTiles URL
-  // Remove file:// prefix, mbtiles:// needs the raw path
-  const cleanPath = mbtilesPath.replace('file://', '');
+// Build a MapLibre style using local tile server
+function buildLocalTileStyle(dbName) {
+  // Use localhost URL from tile server
+  const tileUrl = TileServer.getTileUrl(dbName);
 
-  // Try format: mbtiles:// with url property (not tiles array)
   return {
     version: 8,
     name: 'Offline Basemap',
     sources: {
       'offline-basemap': {
         type: 'raster',
-        url: `mbtiles://${cleanPath}`,
+        tiles: [tileUrl],
         tileSize: 256,
+        minzoom: 0,
+        maxzoom: 16,
       }
     },
     layers: [
@@ -322,15 +325,37 @@ export default function App() {
           setDebugInfo(debug.join('\n'));
         }
 
-        // Show final state
+        // Start tile server and open databases
         const pathKeys = Object.keys(paths);
         debug.push(`---`);
-        debug.push(`Ready: ${pathKeys.length > 0 ? pathKeys.join(', ') : 'NONE'}`);
-        if (paths.topo) {
-          debug.push(`Path: ${paths.topo}`);
+
+        if (pathKeys.length > 0) {
+          debug.push(`Starting tile server...`);
+          setDebugInfo(debug.join('\n'));
+
+          // Start the local HTTP server
+          const serverStarted = await TileServer.start();
+          if (serverStarted) {
+            debug.push(`Server: localhost:${TileServer.port}`);
+
+            // Open each MBTiles database
+            for (const [key, filePath] of Object.entries(paths)) {
+              const opened = await TileServer.openDatabase(key, filePath);
+              if (opened) {
+                debug.push(`${key}: SERVING`);
+              } else {
+                debug.push(`${key}: FAILED TO OPEN`);
+              }
+            }
+
+            debug.push(`Tile URL: ${TileServer.getTileUrl('topo')}`);
+          } else {
+            debug.push(`Server: FAILED TO START`);
+          }
         } else {
           debug.push('FALLBACK: online tiles');
         }
+
         setDebugInfo(debug.join('\n'));
         setDownloadProgress(1);
 
@@ -357,8 +382,9 @@ export default function App() {
 
   // Get current basemap style
   const getMapStyle = () => {
-    if (mbtilesReady && mbtilesPaths[currentBasemap]) {
-      return buildMBTilesStyle(mbtilesPaths[currentBasemap]);
+    if (mbtilesReady && mbtilesPaths[currentBasemap] && TileServer.isRunning) {
+      // Use local tile server
+      return buildLocalTileStyle(currentBasemap);
     }
     return ONLINE_FALLBACK;
   };
