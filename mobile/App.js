@@ -2,7 +2,7 @@ import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, View, Text, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import MapLibreGL from '@maplibre/maplibre-react-native';
 import { useState, useEffect } from 'react';
-import { File, Paths } from 'expo-file-system';
+import * as FileSystem from 'expo-file-system';
 
 // Import GeoJSON data
 import avyPaths from './assets/layers/BCC_AvyPaths.json';
@@ -109,21 +109,23 @@ export default function App() {
   useEffect(() => {
     async function setupMBTiles() {
       let debug = [];
-      debug.push(`Doc dir: ${Paths.document}`);
+      debug.push(`Doc: ${FileSystem.documentDirectory}`);
       setDebugInfo(debug.join('\n'));
 
       try {
         const paths = {};
 
         for (const [key, basemap] of Object.entries(MBTILES_BASEMAPS)) {
-          const file = new File(Paths.document, basemap.file);
+          const destPath = `${FileSystem.documentDirectory}${basemap.file}`;
           debug.push(`Checking ${key}...`);
           setDebugInfo(debug.join('\n'));
 
-          if (file.exists && file.size > 1000000) {
+          const fileInfo = await FileSystem.getInfoAsync(destPath);
+
+          if (fileInfo.exists && fileInfo.size > 1000000) {
             // Already downloaded (and file is > 1MB, so not empty/corrupt)
-            paths[key] = file.uri;
-            const sizeMB = (file.size / 1024 / 1024).toFixed(1);
+            paths[key] = destPath;
+            const sizeMB = (fileInfo.size / 1024 / 1024).toFixed(1);
             debug.push(`${key}: EXISTS (${sizeMB}MB)`);
           } else {
             // Download from GitHub Releases
@@ -132,18 +134,23 @@ export default function App() {
             setLoadingMessage(`Downloading ${basemap.name} (${basemap.size})...`);
 
             try {
-              const downloadedFile = await File.downloadFileAsync(
+              const downloadResult = await FileSystem.downloadAsync(
                 basemap.url,
-                new File(Paths.document, basemap.file)
+                destPath
               );
 
-              const sizeMB = (downloadedFile.size / 1024 / 1024).toFixed(1);
+              if (downloadResult.status === 200) {
+                const newFileInfo = await FileSystem.getInfoAsync(destPath);
+                const sizeMB = (newFileInfo.size / 1024 / 1024).toFixed(1);
 
-              if (downloadedFile.size > 1000000) {
-                paths[key] = downloadedFile.uri;
-                debug.push(`${key}: OK (${sizeMB}MB)`);
+                if (newFileInfo.size > 1000000) {
+                  paths[key] = destPath;
+                  debug.push(`${key}: OK (${sizeMB}MB)`);
+                } else {
+                  debug.push(`${key}: TOO SMALL (${sizeMB}MB)`);
+                }
               } else {
-                debug.push(`${key}: TOO SMALL (${sizeMB}MB)`);
+                debug.push(`${key}: HTTP ${downloadResult.status}`);
               }
             } catch (downloadError) {
               debug.push(`${key}: ERR ${downloadError.message}`);
