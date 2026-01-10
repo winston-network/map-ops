@@ -248,11 +248,15 @@ export default function App() {
       let debug = [];
       debug.push(`Doc: ${FileSystem.documentDirectory}`);
       setDebugInfo(debug.join('\n'));
+      setDownloadProgress(0.05); // Show some initial progress
 
       try {
         const paths = {};
+        let totalFiles = Object.keys(MBTILES_BASEMAPS).length;
+        let currentFile = 0;
 
         for (const [key, basemap] of Object.entries(MBTILES_BASEMAPS)) {
+          currentFile++;
           const destPath = `${FileSystem.documentDirectory}${basemap.file}`;
           debug.push(`Checking ${key}...`);
           setDebugInfo(debug.join('\n'));
@@ -263,37 +267,40 @@ export default function App() {
             // Already downloaded (and file is > 1MB, so not empty/corrupt)
             paths[key] = destPath;
             const sizeMB = (fileInfo.size / 1024 / 1024).toFixed(1);
-            debug.push(`${key}: EXISTS (${sizeMB}MB)`);
+            debug.push(`${key}: CACHED (${sizeMB}MB)`);
+            setDownloadProgress(currentFile / totalFiles);
           } else {
             // Download from GitHub Releases
-            debug.push(`${key}: downloading...`);
+            debug.push(`${key}: downloading from GitHub...`);
             setDebugInfo(debug.join('\n'));
-            setLoadingMessage(`Downloading ${basemap.name} (${basemap.size})...`);
-            // Update progress (0.5 per basemap)
-            setDownloadProgress(prev => prev + 0.1);
+            setLoadingMessage(`Downloading ${basemap.name} (${basemap.size})...\nThis only happens once.`);
+            setDownloadProgress((currentFile - 0.5) / totalFiles);
 
             try {
+              console.log(`Starting download: ${basemap.url}`);
               const downloadResult = await FileSystem.downloadAsync(
                 basemap.url,
                 destPath
               );
+              console.log(`Download result:`, downloadResult);
 
               if (downloadResult.status === 200) {
                 const newFileInfo = await FileSystem.getInfoAsync(destPath);
                 const sizeMB = (newFileInfo.size / 1024 / 1024).toFixed(1);
-                setDownloadProgress(prev => prev + 0.4); // More progress after download
+                setDownloadProgress(currentFile / totalFiles);
 
                 if (newFileInfo.size > 1000000) {
                   paths[key] = destPath;
-                  debug.push(`${key}: OK (${sizeMB}MB)`);
+                  debug.push(`${key}: DOWNLOADED (${sizeMB}MB)`);
                 } else {
-                  debug.push(`${key}: TOO SMALL (${sizeMB}MB)`);
+                  debug.push(`${key}: FILE TOO SMALL (${sizeMB}MB)`);
                 }
               } else {
-                debug.push(`${key}: HTTP ${downloadResult.status}`);
+                debug.push(`${key}: HTTP ERROR ${downloadResult.status}`);
               }
             } catch (downloadError) {
-              debug.push(`${key}: ERR ${downloadError.message}`);
+              debug.push(`${key}: DOWNLOAD FAILED - ${downloadError.message}`);
+              console.error(`Download error for ${key}:`, downloadError);
             }
           }
           setDebugInfo(debug.join('\n'));
@@ -301,22 +308,34 @@ export default function App() {
 
         // Show final state
         const pathKeys = Object.keys(paths);
+        debug.push(`---`);
         debug.push(`Ready: ${pathKeys.length > 0 ? pathKeys.join(', ') : 'NONE'}`);
         if (paths.topo) {
           const tilePath = paths.topo.replace('file://', '');
-          debug.push(`Tiles: mbtiles://${tilePath}`);
+          debug.push(`URL: mbtiles://${tilePath}`);
         } else {
-          debug.push('Using online fallback');
+          debug.push('FALLBACK: online tiles');
         }
         setDebugInfo(debug.join('\n'));
+        setDownloadProgress(1);
+
+        // Brief delay so user sees completion
+        await new Promise(resolve => setTimeout(resolve, 500));
 
         setMbtilesPaths(paths);
         setMbtilesReady(true);
         setLoadingMessage('');
       } catch (error) {
-        setDebugInfo(`ERROR: ${error.message}`);
-        setLoadingMessage('');
-        setMbtilesReady(true);
+        debug.push(`FATAL ERROR: ${error.message}`);
+        setDebugInfo(debug.join('\n'));
+        console.error('Setup error:', error);
+        // Keep loading message visible with error
+        setLoadingMessage(`Error: ${error.message}`);
+        // Still mark as ready so app doesn't hang
+        setTimeout(() => {
+          setMbtilesReady(true);
+          setLoadingMessage('');
+        }, 3000);
       }
     }
 
@@ -491,10 +510,13 @@ export default function App() {
         ))}
       </MapLibreGL.MapView>
 
-      {/* Debug Panel - tap to toggle */}
-      <TouchableOpacity style={styles.debugPanel} onPress={() => setDebugInfo('')}>
-        <Text style={styles.debugText}>{debugInfo}</Text>
-      </TouchableOpacity>
+      {/* Debug Panel - always visible for basemap debugging */}
+      {debugInfo ? (
+        <View style={styles.debugPanel}>
+          <Text style={styles.debugTitle}>BASEMAP STATUS:</Text>
+          <Text style={styles.debugText}>{debugInfo}</Text>
+        </View>
+      ) : null}
 
       {/* Footer */}
       <View style={styles.footer}>
@@ -652,16 +674,25 @@ const styles = StyleSheet.create({
     height: 32,
   },
   debugPanel: {
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    padding: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    padding: 10,
     marginHorizontal: 8,
     marginVertical: 4,
-    borderRadius: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#00ff00',
+  },
+  debugTitle: {
+    color: '#00ff00',
+    fontSize: 11,
+    fontWeight: 'bold',
+    marginBottom: 4,
   },
   debugText: {
     color: '#00ff00',
-    fontSize: 9,
+    fontSize: 10,
     fontFamily: 'monospace',
+    lineHeight: 14,
   },
   footer: {
     backgroundColor: '#1a1a2e',
