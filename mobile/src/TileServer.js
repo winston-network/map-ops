@@ -1,13 +1,14 @@
 /**
- * Local Tile Server for MBTiles
+ * Local Tile Server for MBTiles - Wasatch App Architecture
  *
- * Mimics how native iOS apps serve offline tiles:
- * 1. Run HTTP server on localhost
- * 2. Read tiles from MBTiles (SQLite) database
- * 3. MapLibre points to http://localhost:PORT/{z}/{x}/{y}
+ * How it works (mimics Wasatch Backcountry Skiing app):
+ * 1. Read tiles from MBTiles (SQLite) database
+ * 2. Extract tiles to individual files on disk (z/x/y.png)
+ * 3. Serve tile directory with static file server
+ * 4. MapLibre requests tiles as static files
  */
 
-import { BridgeServer } from 'react-native-http-bridge-refurbished';
+import StaticServer from '@dr.pogodin/react-native-static-server';
 import SQLite from 'react-native-sqlite-storage';
 import RNFS from 'react-native-fs';
 
@@ -16,13 +17,116 @@ SQLite.enablePromise(true);
 class TileServer {
   constructor() {
     this.server = null;
-    this.databases = {};
     this.port = 9876;
     this.isRunning = false;
+    this.tilesDir = `${RNFS.DocumentDirectoryPath}/tiles`;
   }
 
   /**
-   * Start the tile server
+   * Extract tiles from MBTiles database to individual files
+   * This is the key step - static server can only serve files, not database queries
+   */
+  async extractTiles(dbName, mbtilesPath, onProgress) {
+    const tileDir = `${this.tilesDir}/${dbName}`;
+
+    // Check if already extracted
+    const markerFile = `${tileDir}/.extracted`;
+    const markerExists = await RNFS.exists(markerFile);
+    if (markerExists) {
+      console.log(`${dbName}: tiles already extracted`);
+      return true;
+    }
+
+    console.log(`${dbName}: extracting tiles from ${mbtilesPath}`);
+
+    try {
+      // Open the MBTiles database
+      const db = await SQLite.openDatabase({
+        name: mbtilesPath,
+        location: 'default',
+        createFromLocation: mbtilesPath,
+      });
+
+      // Get total tile count for progress
+      const [countResult] = await db.executeSql('SELECT COUNT(*) as count FROM tiles');
+      const totalTiles = countResult.rows.item(0).count;
+      console.log(`${dbName}: ${totalTiles} tiles to extract`);
+
+      if (totalTiles === 0) {
+        console.error(`${dbName}: no tiles in database!`);
+        await db.close();
+        return false;
+      }
+
+      // Create base directory
+      await RNFS.mkdir(tileDir);
+
+      // Extract tiles in batches
+      const batchSize = 500;
+      let extracted = 0;
+      let offset = 0;
+
+      while (offset < totalTiles) {
+        const [results] = await db.executeSql(
+          'SELECT zoom_level, tile_column, tile_row, tile_data FROM tiles LIMIT ? OFFSET ?',
+          [batchSize, offset]
+        );
+
+        for (let i = 0; i < results.rows.length; i++) {
+          const row = results.rows.item(i);
+          const z = row.zoom_level;
+          const x = row.tile_column;
+          // MBTiles uses TMS - flip Y coordinate to XYZ
+          const tmsY = row.tile_row;
+          const xyzY = Math.pow(2, z) - 1 - tmsY;
+
+          // Create directory structure: tiles/dbname/z/x/
+          const zDir = `${tileDir}/${z}`;
+          const xDir = `${zDir}/${x}`;
+
+          // Ensure directories exist
+          const zExists = await RNFS.exists(zDir);
+          if (!zExists) await RNFS.mkdir(zDir);
+
+          const xExists = await RNFS.exists(xDir);
+          if (!xExists) await RNFS.mkdir(xDir);
+
+          // Write tile file (y.png)
+          const tilePath = `${xDir}/${xyzY}.png`;
+
+          // tile_data should be base64 encoded blob from SQLite
+          const tileData = row.tile_data;
+          if (tileData) {
+            // Write as base64
+            await RNFS.writeFile(tilePath, tileData, 'base64');
+          }
+
+          extracted++;
+        }
+
+        offset += batchSize;
+
+        // Report progress
+        const progress = extracted / totalTiles;
+        if (onProgress) onProgress(progress);
+        console.log(`${dbName}: extracted ${extracted}/${totalTiles} (${Math.round(progress * 100)}%)`);
+      }
+
+      // Create marker file to indicate extraction is complete
+      await RNFS.writeFile(markerFile, new Date().toISOString(), 'utf8');
+
+      await db.close();
+      console.log(`${dbName}: extraction complete!`);
+      return true;
+
+    } catch (error) {
+      console.error(`${dbName}: extraction failed:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Start the static file server
    */
   async start() {
     if (this.isRunning) {
@@ -31,37 +135,23 @@ class TileServer {
     }
 
     try {
-      this.server = new BridgeServer('http_service', true);
+      // Ensure tiles directory exists
+      const dirExists = await RNFS.exists(this.tilesDir);
+      if (!dirExists) {
+        await RNFS.mkdir(this.tilesDir);
+      }
 
-      // Handle tile requests: /dbname/z/x/y
-      this.server.get('/:db/:z/:x/:y', async (req, res) => {
-        const { db, z, x, y } = req.params;
-
-        try {
-          const tileData = await this.getTile(db, parseInt(z), parseInt(x), parseInt(y));
-
-          if (tileData) {
-            // Return tile as binary data
-            res.send(200, 'image/png', tileData);
-          } else {
-            // Return transparent pixel for missing tiles
-            res.send(404, 'text/plain', 'Tile not found');
-          }
-        } catch (error) {
-          console.error('Tile request error:', error);
-          res.send(500, 'text/plain', error.message);
-        }
+      // Create static server serving the tiles directory
+      this.server = new StaticServer(this.port, this.tilesDir, {
+        localOnly: true,
+        keepAlive: true,
       });
 
-      // Health check endpoint
-      this.server.get('/health', (req, res) => {
-        res.send(200, 'application/json', JSON.stringify({ status: 'ok', databases: Object.keys(this.databases) }));
-      });
-
-      await this.server.listen(this.port);
+      const origin = await this.server.start();
       this.isRunning = true;
-      console.log(`Tile server running on port ${this.port}`);
+      console.log(`Static tile server running at ${origin}`);
       return true;
+
     } catch (error) {
       console.error('Failed to start tile server:', error);
       return false;
@@ -69,9 +159,10 @@ class TileServer {
   }
 
   /**
-   * Open an MBTiles database
+   * Open an MBTiles database and extract tiles
+   * Returns true when tiles are ready to serve
    */
-  async openDatabase(name, filePath) {
+  async openDatabase(name, filePath, onProgress) {
     try {
       const exists = await RNFS.exists(filePath);
       if (!exists) {
@@ -79,28 +170,16 @@ class TileServer {
         return false;
       }
 
-      // Copy to a location SQLite can access if needed
-      const dbPath = `${RNFS.DocumentDirectoryPath}/${name}.db`;
-
-      // Only copy if not already there or different
-      const dbExists = await RNFS.exists(dbPath);
-      if (!dbExists) {
-        await RNFS.copyFile(filePath, dbPath);
+      // Extract tiles from MBTiles to static files
+      const extracted = await this.extractTiles(name, filePath, onProgress);
+      if (!extracted) {
+        console.error(`Failed to extract tiles for ${name}`);
+        return false;
       }
 
-      const db = await SQLite.openDatabase({
-        name: `${name}.db`,
-        location: 'Documents',
-      });
-
-      this.databases[name] = db;
-      console.log(`Opened MBTiles: ${name}`);
-
-      // Log metadata
-      const metadata = await this.getMetadata(name);
-      console.log(`${name} metadata:`, metadata);
-
+      console.log(`${name}: ready to serve`);
       return true;
+
     } catch (error) {
       console.error(`Failed to open MBTiles ${name}:`, error);
       return false;
@@ -108,82 +187,38 @@ class TileServer {
   }
 
   /**
-   * Get a tile from MBTiles database
-   * MBTiles uses TMS (flipped Y) coordinate system
-   */
-  async getTile(dbName, z, x, y) {
-    const db = this.databases[dbName];
-    if (!db) {
-      console.error(`Database not found: ${dbName}`);
-      return null;
-    }
-
-    // MBTiles uses TMS - flip Y coordinate
-    const tmsY = Math.pow(2, z) - 1 - y;
-
-    try {
-      const [results] = await db.executeSql(
-        'SELECT tile_data FROM tiles WHERE zoom_level = ? AND tile_column = ? AND tile_row = ?',
-        [z, x, tmsY]
-      );
-
-      if (results.rows.length > 0) {
-        return results.rows.item(0).tile_data;
-      }
-      return null;
-    } catch (error) {
-      console.error(`Tile query error ${z}/${x}/${y}:`, error);
-      return null;
-    }
-  }
-
-  /**
-   * Get MBTiles metadata
-   */
-  async getMetadata(dbName) {
-    const db = this.databases[dbName];
-    if (!db) return null;
-
-    try {
-      const [results] = await db.executeSql('SELECT name, value FROM metadata');
-      const metadata = {};
-      for (let i = 0; i < results.rows.length; i++) {
-        const row = results.rows.item(i);
-        metadata[row.name] = row.value;
-      }
-      return metadata;
-    } catch (error) {
-      console.error('Metadata query error:', error);
-      return null;
-    }
-  }
-
-  /**
    * Get tile URL template for MapLibre
+   * Static server serves files at: http://localhost:PORT/dbname/z/x/y.png
    */
   getTileUrl(dbName) {
-    return `http://localhost:${this.port}/${dbName}/{z}/{x}/{y}`;
+    return `http://localhost:${this.port}/${dbName}/{z}/{x}/{y}.png`;
   }
 
   /**
-   * Stop the server and close databases
+   * Stop the server
    */
   async stop() {
     if (this.server) {
-      this.server.stop();
+      await this.server.stop();
+      this.server = null;
     }
-
-    for (const [name, db] of Object.entries(this.databases)) {
-      try {
-        await db.close();
-      } catch (e) {
-        console.error(`Error closing ${name}:`, e);
-      }
-    }
-
-    this.databases = {};
     this.isRunning = false;
     console.log('Tile server stopped');
+  }
+
+  /**
+   * Clear extracted tiles (force re-extraction)
+   */
+  async clearCache() {
+    try {
+      const exists = await RNFS.exists(this.tilesDir);
+      if (exists) {
+        await RNFS.unlink(this.tilesDir);
+      }
+      console.log('Tile cache cleared');
+    } catch (error) {
+      console.error('Failed to clear tile cache:', error);
+    }
   }
 }
 

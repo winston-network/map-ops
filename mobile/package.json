@@ -9,6 +9,7 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@dr.pogodin/react-native-static-server": "^0.25.4",
     "@maplibre/maplibre-react-native": "^10.4.2",
     "expo": "~54.0.30",
     "expo-dev-client": "~6.0.20",

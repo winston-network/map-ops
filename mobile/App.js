@@ -325,7 +325,7 @@ export default function App() {
           setDebugInfo(debug.join('\n'));
         }
 
-        // Start tile server and open databases
+        // Extract tiles and start static server (Wasatch app architecture)
         const pathKeys = Object.keys(paths);
         debug.push(`---`);
 
@@ -333,19 +333,31 @@ export default function App() {
           debug.push(`Starting tile server...`);
           setDebugInfo(debug.join('\n'));
 
-          // Start the local HTTP server
+          // Start the static file server first
           const serverStarted = await TileServer.start();
           if (serverStarted) {
             debug.push(`Server: localhost:${TileServer.port}`);
+            setDebugInfo(debug.join('\n'));
 
-            // Open each MBTiles database
+            // Extract tiles from each MBTiles database
+            let dbIndex = 0;
             for (const [key, filePath] of Object.entries(paths)) {
-              const opened = await TileServer.openDatabase(key, filePath);
+              dbIndex++;
+              setLoadingMessage(`Preparing ${key} tiles...\nFirst launch only - please wait.`);
+
+              // Progress callback for extraction
+              const onProgress = (progress) => {
+                // Show extraction progress (after download progress)
+                setDownloadProgress(0.5 + (dbIndex - 1 + progress) / (pathKeys.length * 2));
+              };
+
+              const opened = await TileServer.openDatabase(key, filePath, onProgress);
               if (opened) {
-                debug.push(`${key}: SERVING`);
+                debug.push(`${key}: READY`);
               } else {
-                debug.push(`${key}: FAILED TO OPEN`);
+                debug.push(`${key}: FAILED`);
               }
+              setDebugInfo(debug.join('\n'));
             }
 
             debug.push(`Tile URL: ${TileServer.getTileUrl('topo')}`);
