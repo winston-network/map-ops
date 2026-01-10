@@ -235,6 +235,9 @@ export default function App() {
   const [debugInfo, setDebugInfo] = useState('Starting...');
   const [downloadProgress, setDownloadProgress] = useState(0);
 
+  // Selected feature for popup
+  const [selectedFeature, setSelectedFeature] = useState(null);
+
   // Generate snowflakes for loading animation
   const snowflakes = useRef(
     Array.from({ length: 30 }, (_, i) => ({
@@ -516,7 +519,20 @@ export default function App() {
         <MapLibreGL.UserLocation visible={true} />
 
         {/* Avalanche Paths - Light blue polygons */}
-        <MapLibreGL.ShapeSource id="avyPaths" shape={avyPaths}>
+        <MapLibreGL.ShapeSource
+          id="avyPaths"
+          shape={avyPaths}
+          onPress={(e) => {
+            if (showAvyPaths && e.features && e.features.length > 0) {
+              const feature = e.features[0];
+              setSelectedFeature({
+                type: 'Avalanche Path',
+                description: feature.properties?.description || feature.properties?.name || 'Unknown Path',
+                coordinates: e.coordinates,
+              });
+            }
+          }}
+        >
           <MapLibreGL.FillLayer
             id="avyPathsFill"
             style={{
@@ -540,9 +556,14 @@ export default function App() {
             key={`gate-${feature.id}`}
             id={`gate-${feature.id}`}
             coordinate={feature.geometry.coordinates}
-            title={feature.properties.description}
+            onSelected={() => setSelectedFeature({
+              type: 'Gate',
+              description: feature.properties.description || 'Gate',
+              coordinates: feature.geometry.coordinates,
+            })}
           >
             <Image source={require('./assets/icons/BCC_Gates.png')} style={styles.mapIcon} />
+            <MapLibreGL.Callout title={feature.properties.description || 'Gate'} />
           </MapLibreGL.PointAnnotation>
         ))}
 
@@ -552,12 +573,32 @@ export default function App() {
             key={`staging-${feature.id}`}
             id={`staging-${feature.id}`}
             coordinate={feature.geometry.coordinates}
-            title={feature.properties.description}
+            onSelected={() => setSelectedFeature({
+              type: 'Staging Area',
+              description: feature.properties.description || 'Staging Area',
+              coordinates: feature.geometry.coordinates,
+            })}
           >
             <Image source={require('./assets/icons/BCC_Staging.png')} style={styles.mapIcon} />
+            <MapLibreGL.Callout title={feature.properties.description || 'Staging Area'} />
           </MapLibreGL.PointAnnotation>
         ))}
       </MapLibreGL.MapView>
+
+      {/* Feature Popup */}
+      {selectedFeature && (
+        <TouchableOpacity
+          style={styles.popupOverlay}
+          activeOpacity={1}
+          onPress={() => setSelectedFeature(null)}
+        >
+          <View style={styles.popup}>
+            <Text style={styles.popupType}>{selectedFeature.type}</Text>
+            <Text style={styles.popupDescription}>{selectedFeature.description}</Text>
+            <Text style={styles.popupHint}>Tap anywhere to close</Text>
+          </View>
+        </TouchableOpacity>
+      )}
 
       {/* Debug Panel - always visible for basemap debugging */}
       {debugInfo ? (
@@ -721,6 +762,49 @@ const styles = StyleSheet.create({
   mapIcon: {
     width: 32,
     height: 32,
+  },
+  popupOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  },
+  popup: {
+    backgroundColor: '#1a1a2e',
+    borderRadius: 12,
+    padding: 16,
+    marginHorizontal: 40,
+    borderWidth: 1,
+    borderColor: '#7ec8ff',
+    shadowColor: '#7ec8ff',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  popupType: {
+    color: '#7ec8ff',
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  popupDescription: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '500',
+    marginBottom: 8,
+  },
+  popupHint: {
+    color: '#888888',
+    fontSize: 10,
+    textAlign: 'center',
+    marginTop: 4,
   },
   debugPanel: {
     backgroundColor: 'rgba(0, 0, 0, 0.9)',
