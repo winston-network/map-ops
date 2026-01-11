@@ -1,4 +1,4 @@
-// Map HTML for WebView - MapLibre GL JS with PMTiles support
+// Map HTML for WebView - MapLibre GL JS with tiles from React Native
 export const mapHtml = `
 <!DOCTYPE html>
 <html>
@@ -8,7 +8,6 @@ export const mapHtml = `
   <title>MAP-OPS</title>
   <script src="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.js"></script>
   <link href="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.css" rel="stylesheet" />
-  <script src="https://unpkg.com/pmtiles@3.0.6/dist/pmtiles.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: 100%; height: 100%; overflow: hidden; }
@@ -20,24 +19,21 @@ export const mapHtml = `
 <body>
   <div id="map"></div>
   <script>
-    // PMTiles protocol registration
-    const protocol = new pmtiles.Protocol();
-    maplibregl.addProtocol('pmtiles', protocol.tile);
-
-    // Basemap URLs - will be set dynamically from React Native
-    let BASEMAPS = {
-      topo: 'osm',      // Fallback to OSM if no local files
-      satellite: 'osm'
-    };
-
     // Current state
     let currentBasemap = 'topo';
     let showAvyPaths = true;
     let showGates = true;
     let showStaging = true;
     let map = null;
+    let tilesReady = false;
 
-    // GeoJSON data (will be injected from React Native)
+    // Tile cache
+    const tileCache = new Map();
+
+    // Pending tile requests (waiting for RN response)
+    const pendingTileRequests = new Map();
+
+    // GeoJSON data
     let avyPathsData = null;
     let gatesData = null;
     let stagingData = null;
@@ -66,40 +62,102 @@ export const mapHtml = `
       return [[minLng - 0.01, minLat - 0.01], [maxLng + 0.01, maxLat + 0.01]];
     }
 
-    // Create style for basemap
-    function createStyle(basemapKey) {
-      // OpenStreetMap raster tiles
-      if (basemapKey === 'osm') {
-        return {
-          version: 8,
-          sources: {
-            osm: {
-              type: 'raster',
-              tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-              tileSize: 256,
-              attribution: '&copy; OpenStreetMap'
-            }
-          },
-          layers: [
-            {
-              id: 'osm-layer',
-              type: 'raster',
-              source: 'osm',
-              minzoom: 0,
-              maxzoom: 19
-            }
-          ]
-        };
+    // Request tile from React Native
+    function requestTile(basemap, z, x, y) {
+      const key = basemap + '/' + z + '/' + x + '/' + y;
+
+      // Check cache first
+      if (tileCache.has(key)) {
+        return Promise.resolve(tileCache.get(key));
       }
 
-      // PMTiles basemap
+      // Check if already pending
+      if (pendingTileRequests.has(key)) {
+        return pendingTileRequests.get(key);
+      }
+
+      // Create new request
+      const promise = new Promise((resolve, reject) => {
+        // Store resolver for when RN responds
+        pendingTileRequests.set(key, { resolve, reject, promise: null });
+
+        // Request tile from React Native
+        sendMessage({
+          type: 'getTile',
+          basemap: basemap,
+          z: z,
+          x: x,
+          y: y,
+          key: key
+        });
+
+        // Timeout after 10 seconds
+        setTimeout(() => {
+          if (pendingTileRequests.has(key)) {
+            pendingTileRequests.delete(key);
+            resolve(null); // Return null on timeout
+          }
+        }, 10000);
+      });
+
+      pendingTileRequests.get(key).promise = promise;
+      return promise;
+    }
+
+    // Handle tile response from React Native
+    function handleTileResponse(key, base64Data) {
+      if (pendingTileRequests.has(key)) {
+        const { resolve } = pendingTileRequests.get(key);
+        pendingTileRequests.delete(key);
+
+        if (base64Data) {
+          const dataUrl = 'data:image/png;base64,' + base64Data;
+          tileCache.set(key, dataUrl);
+          resolve(dataUrl);
+        } else {
+          resolve(null);
+        }
+      }
+    }
+
+    // Custom protocol for loading tiles from RN
+    maplibregl.addProtocol('rntile', (params, callback) => {
+      // URL format: rntile://basemap/z/x/y
+      const url = params.url.replace('rntile://', '');
+      const parts = url.split('/');
+      const basemap = parts[0];
+      const z = parseInt(parts[1]);
+      const x = parseInt(parts[2]);
+      const y = parseInt(parts[3]);
+
+      requestTile(basemap, z, x, y)
+        .then(dataUrl => {
+          if (dataUrl) {
+            // Fetch the data URL and return as ArrayBuffer
+            fetch(dataUrl)
+              .then(response => response.arrayBuffer())
+              .then(data => callback(null, data, null, null))
+              .catch(err => callback(err));
+          } else {
+            callback(new Error('Tile not found'));
+          }
+        })
+        .catch(err => callback(err));
+
+      return { cancel: () => {} };
+    });
+
+    // Create style with custom tile source
+    function createStyle(basemap) {
       return {
         version: 8,
         sources: {
           basemap: {
             type: 'raster',
-            url: basemapKey,
-            tileSize: 256
+            tiles: ['rntile://' + basemap + '/{z}/{x}/{y}'],
+            tileSize: 256,
+            minzoom: 10,
+            maxzoom: 16
           }
         },
         layers: [
@@ -118,28 +176,19 @@ export const mapHtml = `
     function initMap() {
       map = new maplibregl.Map({
         container: 'map',
-        style: createStyle(BASEMAPS[currentBasemap]),
+        style: createStyle(currentBasemap),
         center: [-111.6, 40.58],
         zoom: 12,
         attributionControl: false
       });
 
       map.on('load', () => {
-        // Add GeoJSON sources and layers once data is available
-        if (avyPathsData) addAvyPathsLayer();
-        if (gatesData) addGatesLayer();
-        if (stagingData) addStagingLayer();
-
-        // Fit to bounds if we have data
-        if (avyPathsData || gatesData || stagingData) {
-          const bounds = calculateBounds([avyPathsData, gatesData, stagingData].filter(Boolean));
-          if (bounds[0][0] !== Infinity) {
-            map.fitBounds(bounds, { padding: 50 });
-          }
-        }
-
         // Notify React Native that map is ready
         sendMessage({ type: 'mapReady' });
+      });
+
+      map.on('error', (e) => {
+        console.error('Map error:', e);
       });
 
       // Click handlers for features
@@ -174,12 +223,6 @@ export const mapHtml = `
             description: 'Mile Marker ' + (feature.properties.description || '?')
           });
         }
-      });
-
-      // Cursor changes
-      ['avy-paths-fill', 'gates-layer', 'staging-layer'].forEach(layer => {
-        map.on('mouseenter', layer, () => { map.getCanvas().style.cursor = 'pointer'; });
-        map.on('mouseleave', layer, () => { map.getCanvas().style.cursor = ''; });
       });
     }
 
@@ -226,38 +269,21 @@ export const mapHtml = `
       } else {
         map.addSource('gates', { type: 'geojson', data: gatesData });
 
-        // Load gate icon
-        map.loadImage('https://raw.githubusercontent.com/winston-network/map-ops/main/images/icons/BCC_Gates.png', (error, image) => {
-          if (error) {
-            console.error('Error loading gate icon:', error);
-            // Fallback to circle
-            map.addLayer({
-              id: 'gates-layer',
-              type: 'circle',
-              source: 'gates',
-              paint: {
-                'circle-radius': 8,
-                'circle-color': '#f59e0b',
-                'circle-stroke-width': 2,
-                'circle-stroke-color': '#ffffff'
-              }
-            });
-          } else {
-            map.addImage('gate-icon', image);
-            map.addLayer({
-              id: 'gates-layer',
-              type: 'symbol',
-              source: 'gates',
-              layout: {
-                'icon-image': 'gate-icon',
-                'icon-size': 0.5,
-                'icon-allow-overlap': true
-              }
-            });
+        // Use circle for gates (simpler, works offline)
+        map.addLayer({
+          id: 'gates-layer',
+          type: 'circle',
+          source: 'gates',
+          paint: {
+            'circle-radius': 8,
+            'circle-color': '#f59e0b',
+            'circle-stroke-width': 2,
+            'circle-stroke-color': '#ffffff'
           }
-          updateLayerVisibility();
         });
       }
+
+      updateLayerVisibility();
     }
 
     // Add staging/mile marker layer
@@ -288,7 +314,6 @@ export const mapHtml = `
           layout: {
             'text-field': ['get', 'description'],
             'text-size': 10,
-            'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
             'text-allow-overlap': true
           },
           paint: {
@@ -322,16 +347,14 @@ export const mapHtml = `
       if (!map || basemap === currentBasemap) return;
       currentBasemap = basemap;
 
-      // For PMTiles, we need to reload the style
       const currentCenter = map.getCenter();
       const currentZoom = map.getZoom();
 
-      map.setStyle(createStyle(BASEMAPS[basemap]));
+      map.setStyle(createStyle(basemap));
 
       map.once('style.load', () => {
         map.setCenter(currentCenter);
         map.setZoom(currentZoom);
-        // Re-add layers after style change
         if (avyPathsData) addAvyPathsLayer();
         if (gatesData) addGatesLayer();
         if (stagingData) addStagingLayer();
@@ -385,7 +408,6 @@ export const mapHtml = `
             gatesData = data.gates;
             stagingData = data.staging;
 
-            // Add layers - wait for map if not ready
             const addLayers = () => {
               addAvyPathsLayer();
               addGatesLayer();
@@ -414,31 +436,16 @@ export const mapHtml = `
             switchBasemap(data.basemap);
             break;
 
-          case 'setBasemapUris':
-            // Update basemap URLs with local file paths
-            if (data.topo) {
-              BASEMAPS.topo = 'pmtiles://' + data.topo;
-            }
-            if (data.satellite) {
-              BASEMAPS.satellite = 'pmtiles://' + data.satellite;
-            }
-            // Reload current basemap with new URI
-            if (map && map.isStyleLoaded()) {
-              const currentCenter = map.getCenter();
-              const currentZoom = map.getZoom();
-              map.setStyle(createStyle(BASEMAPS[currentBasemap]));
-              map.once('style.load', () => {
-                map.setCenter(currentCenter);
-                map.setZoom(currentZoom);
-                if (avyPathsData) addAvyPathsLayer();
-                if (gatesData) addGatesLayer();
-                if (stagingData) addStagingLayer();
-              });
-            }
+          case 'tileResponse':
+            handleTileResponse(data.key, data.data);
             break;
 
           case 'updateLocation':
             updateUserLocation(data.lng, data.lat);
+            break;
+
+          case 'tilesReady':
+            tilesReady = true;
             break;
         }
       } catch (e) {

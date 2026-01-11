@@ -5,6 +5,7 @@ import { useState, useEffect, useRef } from 'react';
 import * as Location from 'expo-location';
 import * as FileSystem from 'expo-file-system';
 import { Asset } from 'expo-asset';
+import { TileBridge } from './src/TileBridge';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -155,6 +156,9 @@ export default function App() {
   const [basemapUris, setBasemapUris] = useState(null);
   const [loadingStatus, setLoadingStatus] = useState('Preparing basemaps...');
 
+  // Tile bridge for serving tiles to WebView
+  const tileBridgeRef = useRef(null);
+
   // Selected feature for popup
   const [selectedFeature, setSelectedFeature] = useState(null);
 
@@ -221,6 +225,14 @@ export default function App() {
           'satellite basemap'
         );
 
+        // Initialize tile bridge
+        setLoadingStatus('Initializing tile server...');
+        tileBridgeRef.current = new TileBridge();
+        const bridgeOk = await tileBridgeRef.current.init(uris);
+        if (!bridgeOk) {
+          throw new Error('Failed to initialize tile bridge');
+        }
+
         setLoadingStatus('Basemaps ready!');
         setBasemapUris(uris);
       } catch (error) {
@@ -248,27 +260,39 @@ export default function App() {
         case 'mapReady':
           setMapReady(true);
           setIsReady(true);
-          // Send GeoJSON data to map first
+          // Tell WebView tiles are ready
+          webViewRef.current?.postMessage(JSON.stringify({
+            type: 'tilesReady',
+          }));
+          // Send GeoJSON data to map
           webViewRef.current?.postMessage(JSON.stringify({
             type: 'setGeoJSON',
             avyPaths: avyPaths,
             gates: gatesData,
             staging: stagingData,
           }));
-          // Send basemap URIs after a delay (to let GeoJSON load first)
-          // Skip for now - file:// URIs may not work with pmtiles
-          // TODO: Figure out local file access for WebView
-          /*
-          if (basemapUris) {
-            setTimeout(() => {
-              webViewRef.current?.postMessage(JSON.stringify({
-                type: 'setBasemapUris',
-                topo: basemapUris.topo,
-                satellite: basemapUris.satellite,
-              }));
-            }, 1000);
+          break;
+
+        case 'getTile':
+          // Handle tile request from WebView
+          if (tileBridgeRef.current) {
+            tileBridgeRef.current.getTile(data.basemap, data.z, data.x, data.y)
+              .then(tileData => {
+                webViewRef.current?.postMessage(JSON.stringify({
+                  type: 'tileResponse',
+                  key: data.key,
+                  data: tileData,
+                }));
+              })
+              .catch(err => {
+                console.error('Tile request error:', err);
+                webViewRef.current?.postMessage(JSON.stringify({
+                  type: 'tileResponse',
+                  key: data.key,
+                  data: null,
+                }));
+              });
           }
-          */
           break;
 
         case 'featureSelected':

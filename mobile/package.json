@@ -16,6 +16,7 @@
     "expo-file-system": "~19.0.21",
     "expo-location": "~19.0.8",
     "expo-status-bar": "~3.0.9",
+    "pmtiles": "^4.3.2",
     "react": "19.1.0",
     "react-native": "0.81.5",
     "react-native-fs": "^2.20.0",
