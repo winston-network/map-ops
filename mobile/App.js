@@ -248,21 +248,27 @@ export default function App() {
         case 'mapReady':
           setMapReady(true);
           setIsReady(true);
-          // Send basemap URIs if available
-          if (basemapUris) {
-            webViewRef.current?.postMessage(JSON.stringify({
-              type: 'setBasemapUris',
-              topo: basemapUris.topo,
-              satellite: basemapUris.satellite,
-            }));
-          }
-          // Send GeoJSON data to map
+          // Send GeoJSON data to map first
           webViewRef.current?.postMessage(JSON.stringify({
             type: 'setGeoJSON',
             avyPaths: avyPaths,
             gates: gatesData,
             staging: stagingData,
           }));
+          // Send basemap URIs after a delay (to let GeoJSON load first)
+          // Skip for now - file:// URIs may not work with pmtiles
+          // TODO: Figure out local file access for WebView
+          /*
+          if (basemapUris) {
+            setTimeout(() => {
+              webViewRef.current?.postMessage(JSON.stringify({
+                type: 'setBasemapUris',
+                topo: basemapUris.topo,
+                satellite: basemapUris.satellite,
+              }));
+            }, 1000);
+          }
+          */
           break;
 
         case 'featureSelected':
