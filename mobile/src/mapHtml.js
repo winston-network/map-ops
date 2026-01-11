@@ -24,16 +24,16 @@ export const mapHtml = `
     const protocol = new pmtiles.Protocol();
     maplibregl.addProtocol('pmtiles', protocol.tile);
 
-    // Basemap URLs - PMTiles from GitHub Releases
-    // TODO: Upload PMTiles to releases and update URLs
+    // Basemap URLs
+    // TODO: Upload custom PMTiles to releases and update URLs
     const BASEMAPS = {
       // Custom basemaps (uncomment when uploaded to releases):
       // topo: 'pmtiles://https://github.com/winston-network/map-ops/releases/download/v1.2.0-basemaps/CC_shaded_topo.pmtiles',
       // satellite: 'pmtiles://https://github.com/winston-network/map-ops/releases/download/v1.2.0-basemaps/CC_satellite_12_14.pmtiles'
 
-      // Test basemaps (Protomaps terrain tiles)
-      topo: 'pmtiles://https://r2-public.protomaps.com/protomaps-sample-datasets/terrarium_z9.pmtiles',
-      satellite: 'pmtiles://https://r2-public.protomaps.com/protomaps-sample-datasets/terrarium_z9.pmtiles'
+      // Using OpenStreetMap raster tiles for testing
+      topo: 'osm',
+      satellite: 'osm'
     };
 
     // Current state
@@ -72,14 +72,39 @@ export const mapHtml = `
       return [[minLng - 0.01, minLat - 0.01], [maxLng + 0.01, maxLat + 0.01]];
     }
 
-    // Create raster style for PMTiles
-    function createStyle(basemapUrl) {
+    // Create style for basemap
+    function createStyle(basemapKey) {
+      // OpenStreetMap raster tiles
+      if (basemapKey === 'osm') {
+        return {
+          version: 8,
+          sources: {
+            osm: {
+              type: 'raster',
+              tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+              tileSize: 256,
+              attribution: '&copy; OpenStreetMap'
+            }
+          },
+          layers: [
+            {
+              id: 'osm-layer',
+              type: 'raster',
+              source: 'osm',
+              minzoom: 0,
+              maxzoom: 19
+            }
+          ]
+        };
+      }
+
+      // PMTiles basemap
       return {
         version: 8,
         sources: {
           basemap: {
             type: 'raster',
-            url: basemapUrl,
+            url: basemapKey,
             tileSize: 256
           }
         },
@@ -365,7 +390,9 @@ export const mapHtml = `
             avyPathsData = data.avyPaths;
             gatesData = data.gates;
             stagingData = data.staging;
-            if (map && map.loaded()) {
+
+            // Add layers - wait for map if not ready
+            const addLayers = () => {
               addAvyPathsLayer();
               addGatesLayer();
               addStagingLayer();
@@ -373,6 +400,12 @@ export const mapHtml = `
               if (bounds[0][0] !== Infinity) {
                 map.fitBounds(bounds, { padding: 50 });
               }
+            };
+
+            if (map && map.isStyleLoaded()) {
+              addLayers();
+            } else if (map) {
+              map.once('style.load', addLayers);
             }
             break;
 
