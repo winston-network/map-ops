@@ -1,24 +1,21 @@
 // TileBridge - Reads PMTiles and serves tiles to WebView
-import * as FileSystem from 'expo-file-system';
+import RNFS from 'react-native-fs';
 import { PMTiles } from 'pmtiles';
 
-// Custom source that reads from local file using expo-file-system
+// Custom source that reads from local file using react-native-fs
 class FileSource {
   constructor(filePath) {
-    this.filePath = filePath;
+    // Remove file:// prefix if present
+    this.filePath = filePath.replace('file://', '');
   }
 
   async getBytes(offset, length) {
     try {
-      // Read bytes from file at offset
-      const base64Data = await FileSystem.readAsStringAsync(this.filePath, {
-        encoding: FileSystem.EncodingType.Base64,
-        position: offset,
-        length: length,
-      });
+      // Read bytes from file at offset using react-native-fs
+      const base64Data = await RNFS.read(this.filePath, length, offset, 'base64');
 
-      // Convert base64 to Uint8Array
-      const binaryString = atob(base64Data);
+      // Convert base64 to ArrayBuffer
+      const binaryString = global.atob ? global.atob(base64Data) : Buffer.from(base64Data, 'base64').toString('binary');
       const bytes = new Uint8Array(binaryString.length);
       for (let i = 0; i < binaryString.length; i++) {
         bytes[i] = binaryString.charCodeAt(i);
@@ -41,6 +38,16 @@ class FileSource {
   }
 }
 
+// Simple base64 encode for React Native
+function toBase64(arrayBuffer) {
+  const bytes = new Uint8Array(arrayBuffer);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return global.btoa ? global.btoa(binary) : Buffer.from(binary, 'binary').toString('base64');
+}
+
 // TileBridge class manages PMTiles instances
 export class TileBridge {
   constructor() {
@@ -49,20 +56,25 @@ export class TileBridge {
 
   async init(basemapPaths) {
     try {
+      console.log('TileBridge init with paths:', basemapPaths);
+
       if (basemapPaths.topo) {
+        console.log('Initializing topo PMTiles from:', basemapPaths.topo);
         const topoSource = new FileSource(basemapPaths.topo);
         this.pmtilesInstances.topo = new PMTiles(topoSource);
-        await this.pmtilesInstances.topo.getHeader(); // Validate file
-        console.log('Topo PMTiles initialized');
+        const header = await this.pmtilesInstances.topo.getHeader();
+        console.log('Topo PMTiles header:', header);
       }
 
       if (basemapPaths.satellite) {
+        console.log('Initializing satellite PMTiles from:', basemapPaths.satellite);
         const satSource = new FileSource(basemapPaths.satellite);
         this.pmtilesInstances.satellite = new PMTiles(satSource);
-        await this.pmtilesInstances.satellite.getHeader(); // Validate file
-        console.log('Satellite PMTiles initialized');
+        const header = await this.pmtilesInstances.satellite.getHeader();
+        console.log('Satellite PMTiles header:', header);
       }
 
+      console.log('TileBridge initialized successfully');
       return true;
     } catch (error) {
       console.error('TileBridge init error:', error);
@@ -84,37 +96,9 @@ export class TileBridge {
       }
 
       // Convert ArrayBuffer to base64
-      const bytes = new Uint8Array(tile.data);
-      let binary = '';
-      for (let i = 0; i < bytes.length; i++) {
-        binary += String.fromCharCode(bytes[i]);
-      }
-      const base64 = btoa(binary);
-
-      return base64;
+      return toBase64(tile.data);
     } catch (error) {
-      console.error(`getTile error for ${basemap}/${z}/${x}/${y}:`, error);
-      return null;
-    }
-  }
-
-  async getMetadata(basemap) {
-    try {
-      const pmtiles = this.pmtilesInstances[basemap];
-      if (!pmtiles) return null;
-
-      const header = await pmtiles.getHeader();
-      const metadata = await pmtiles.getMetadata();
-
-      return {
-        minZoom: header.minZoom,
-        maxZoom: header.maxZoom,
-        bounds: [header.minLon, header.minLat, header.maxLon, header.maxLat],
-        tileType: header.tileType,
-        ...metadata,
-      };
-    } catch (error) {
-      console.error('getMetadata error:', error);
+      // Tile not found is common, don't log as error
       return null;
     }
   }
