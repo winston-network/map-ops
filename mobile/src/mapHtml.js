@@ -24,15 +24,9 @@ export const mapHtml = `
     const protocol = new pmtiles.Protocol();
     maplibregl.addProtocol('pmtiles', protocol.tile);
 
-    // Basemap URLs
-    // TODO: Upload custom PMTiles to releases and update URLs
-    const BASEMAPS = {
-      // Custom basemaps (uncomment when uploaded to releases):
-      // topo: 'pmtiles://https://github.com/winston-network/map-ops/releases/download/v1.2.0-basemaps/CC_shaded_topo.pmtiles',
-      // satellite: 'pmtiles://https://github.com/winston-network/map-ops/releases/download/v1.2.0-basemaps/CC_satellite_12_14.pmtiles'
-
-      // Using OpenStreetMap raster tiles for testing
-      topo: 'osm',
+    // Basemap URLs - will be set dynamically from React Native
+    let BASEMAPS = {
+      topo: 'osm',      // Fallback to OSM if no local files
       satellite: 'osm'
     };
 
@@ -418,6 +412,29 @@ export const mapHtml = `
 
           case 'setBasemap':
             switchBasemap(data.basemap);
+            break;
+
+          case 'setBasemapUris':
+            // Update basemap URLs with local file paths
+            if (data.topo) {
+              BASEMAPS.topo = 'pmtiles://' + data.topo;
+            }
+            if (data.satellite) {
+              BASEMAPS.satellite = 'pmtiles://' + data.satellite;
+            }
+            // Reload current basemap with new URI
+            if (map && map.isStyleLoaded()) {
+              const currentCenter = map.getCenter();
+              const currentZoom = map.getZoom();
+              map.setStyle(createStyle(BASEMAPS[currentBasemap]));
+              map.once('style.load', () => {
+                map.setCenter(currentCenter);
+                map.setZoom(currentZoom);
+                if (avyPathsData) addAvyPathsLayer();
+                if (gatesData) addGatesLayer();
+                if (stagingData) addStagingLayer();
+              });
+            }
             break;
 
           case 'updateLocation':

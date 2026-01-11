@@ -2,7 +2,7 @@
   "expo": {
     "name": "MAP-OPS",
     "slug": "mobile",
-    "version": "2.5.1",
+    "version": "2.6.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -49,6 +49,9 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "assetBundlePatterns": [
+      "assets/**/*"
+    ],
     "extra": {
       "eas": {
         "projectId": "95960ea8-6e06-488f-8bea-93b130350328"

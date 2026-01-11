@@ -1,8 +1,10 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, View, Text, TouchableOpacity, Image, Animated, Dimensions } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Image, Animated, Dimensions, Platform } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useState, useEffect, useRef } from 'react';
 import * as Location from 'expo-location';
+import * as FileSystem from 'expo-file-system';
+import { Asset } from 'expo-asset';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -132,6 +134,12 @@ import appConfig from './app.json';
 // Import HTML for map
 import { mapHtml } from './src/mapHtml';
 
+// Bundled PMTiles basemaps
+const BUNDLED_BASEMAPS = {
+  topo: require('./assets/basemap/CC_shaded_topo.pmtiles'),
+  satellite: require('./assets/basemap/CC_satellite_12_14.pmtiles'),
+};
+
 export default function App() {
   // Layer visibility state
   const [showAvyPaths, setShowAvyPaths] = useState(true);
@@ -142,6 +150,10 @@ export default function App() {
   // App state
   const [isReady, setIsReady] = useState(false);
   const [mapReady, setMapReady] = useState(false);
+
+  // Basemap file URIs (populated after copying assets)
+  const [basemapUris, setBasemapUris] = useState(null);
+  const [loadingStatus, setLoadingStatus] = useState('Preparing basemaps...');
 
   // Selected feature for popup
   const [selectedFeature, setSelectedFeature] = useState(null);
@@ -160,6 +172,61 @@ export default function App() {
     }))
   ).current;
 
+  // Load bundled PMTiles and copy to accessible location
+  useEffect(() => {
+    const loadBasemaps = async () => {
+      try {
+        setLoadingStatus('Loading basemap assets...');
+
+        const basemapDir = `${FileSystem.documentDirectory}basemaps/`;
+
+        // Create basemaps directory if it doesn't exist
+        const dirInfo = await FileSystem.getInfoAsync(basemapDir);
+        if (!dirInfo.exists) {
+          await FileSystem.makeDirectoryAsync(basemapDir, { intermediates: true });
+        }
+
+        const uris = {};
+
+        // Load topo basemap
+        setLoadingStatus('Preparing topo basemap...');
+        const topoAsset = Asset.fromModule(BUNDLED_BASEMAPS.topo);
+        await topoAsset.downloadAsync();
+        const topoDestPath = `${basemapDir}CC_shaded_topo.pmtiles`;
+        const topoInfo = await FileSystem.getInfoAsync(topoDestPath);
+        if (!topoInfo.exists) {
+          await FileSystem.copyAsync({
+            from: topoAsset.localUri,
+            to: topoDestPath,
+          });
+        }
+        uris.topo = topoDestPath;
+
+        // Load satellite basemap
+        setLoadingStatus('Preparing satellite basemap...');
+        const satAsset = Asset.fromModule(BUNDLED_BASEMAPS.satellite);
+        await satAsset.downloadAsync();
+        const satDestPath = `${basemapDir}CC_satellite_12_14.pmtiles`;
+        const satInfo = await FileSystem.getInfoAsync(satDestPath);
+        if (!satInfo.exists) {
+          await FileSystem.copyAsync({
+            from: satAsset.localUri,
+            to: satDestPath,
+          });
+        }
+        uris.satellite = satDestPath;
+
+        setLoadingStatus('Basemaps ready!');
+        setBasemapUris(uris);
+      } catch (error) {
+        console.error('Error loading basemaps:', error);
+        setLoadingStatus('Error loading basemaps: ' + error.message);
+      }
+    };
+
+    loadBasemaps();
+  }, []);
+
   // Send message to WebView
   const sendToWebView = (message) => {
     if (webViewRef.current && mapReady) {
@@ -176,6 +243,14 @@ export default function App() {
         case 'mapReady':
           setMapReady(true);
           setIsReady(true);
+          // Send basemap URIs if available
+          if (basemapUris) {
+            webViewRef.current?.postMessage(JSON.stringify({
+              type: 'setBasemapUris',
+              topo: basemapUris.topo,
+              satellite: basemapUris.satellite,
+            }));
+          }
           // Send GeoJSON data to map
           webViewRef.current?.postMessage(JSON.stringify({
             type: 'setGeoJSON',
@@ -326,7 +401,7 @@ export default function App() {
       </View>
 
       {/* Loading Screen with Snow Animation */}
-      {!isReady && (
+      {(!isReady || !basemapUris) && (
         <View style={styles.loadingContainer}>
           {snowflakes.map(flake => (
             <Snowflake
@@ -339,27 +414,29 @@ export default function App() {
           ))}
           <View style={styles.loadingContent}>
             <SnowFillText progress={1} text="MAP-OPS" />
-            <Text style={styles.loadingText}>Loading map...</Text>
+            <Text style={styles.loadingText}>{loadingStatus}</Text>
           </View>
         </View>
       )}
 
-      {/* WebView Map */}
-      <WebView
-        ref={webViewRef}
-        source={{ html: mapHtml }}
-        style={styles.map}
-        onMessage={handleWebViewMessage}
-        javaScriptEnabled={true}
-        domStorageEnabled={true}
-        allowFileAccess={true}
-        allowFileAccessFromFileURLs={true}
-        allowUniversalAccessFromFileURLs={true}
-        originWhitelist={['*']}
-        mixedContentMode="always"
-        onError={(e) => console.error('WebView error:', e.nativeEvent)}
-        onHttpError={(e) => console.error('WebView HTTP error:', e.nativeEvent)}
-      />
+      {/* WebView Map - only render when basemaps are ready */}
+      {basemapUris && (
+        <WebView
+          ref={webViewRef}
+          source={{ html: mapHtml }}
+          style={styles.map}
+          onMessage={handleWebViewMessage}
+          javaScriptEnabled={true}
+          domStorageEnabled={true}
+          allowFileAccess={true}
+          allowFileAccessFromFileURLs={true}
+          allowUniversalAccessFromFileURLs={true}
+          originWhitelist={['*']}
+          mixedContentMode="always"
+          onError={(e) => console.error('WebView error:', e.nativeEvent)}
+          onHttpError={(e) => console.error('WebView HTTP error:', e.nativeEvent)}
+        />
+      )}
 
       {/* Feature Popup */}
       {selectedFeature && (
