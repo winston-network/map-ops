@@ -181,46 +181,51 @@ export default function App() {
         const basemapDir = `${FileSystem.documentDirectory}basemaps/`;
 
         // Create basemaps directory if it doesn't exist
-        const dirInfo = await FileSystem.getInfoAsync(basemapDir);
-        if (!dirInfo.exists) {
+        try {
           await FileSystem.makeDirectoryAsync(basemapDir, { intermediates: true });
+        } catch (e) {
+          // Directory might already exist, that's fine
         }
 
         const uris = {};
 
+        // Helper to copy asset if needed
+        const copyAssetIfNeeded = async (assetModule, destPath, name) => {
+          setLoadingStatus(`Preparing ${name}...`);
+          const asset = Asset.fromModule(assetModule);
+          await asset.downloadAsync();
+
+          // Try to copy - if file exists, copyAsync will fail, which is fine
+          try {
+            await FileSystem.copyAsync({
+              from: asset.localUri,
+              to: destPath,
+            });
+          } catch (e) {
+            // File likely already exists, that's fine
+          }
+          return destPath;
+        };
+
         // Load topo basemap
-        setLoadingStatus('Preparing topo basemap...');
-        const topoAsset = Asset.fromModule(BUNDLED_BASEMAPS.topo);
-        await topoAsset.downloadAsync();
-        const topoDestPath = `${basemapDir}CC_shaded_topo.pmtiles`;
-        const topoInfo = await FileSystem.getInfoAsync(topoDestPath);
-        if (!topoInfo.exists) {
-          await FileSystem.copyAsync({
-            from: topoAsset.localUri,
-            to: topoDestPath,
-          });
-        }
-        uris.topo = topoDestPath;
+        uris.topo = await copyAssetIfNeeded(
+          BUNDLED_BASEMAPS.topo,
+          `${basemapDir}CC_shaded_topo.pmtiles`,
+          'topo basemap'
+        );
 
         // Load satellite basemap
-        setLoadingStatus('Preparing satellite basemap...');
-        const satAsset = Asset.fromModule(BUNDLED_BASEMAPS.satellite);
-        await satAsset.downloadAsync();
-        const satDestPath = `${basemapDir}CC_satellite_12_14.pmtiles`;
-        const satInfo = await FileSystem.getInfoAsync(satDestPath);
-        if (!satInfo.exists) {
-          await FileSystem.copyAsync({
-            from: satAsset.localUri,
-            to: satDestPath,
-          });
-        }
-        uris.satellite = satDestPath;
+        uris.satellite = await copyAssetIfNeeded(
+          BUNDLED_BASEMAPS.satellite,
+          `${basemapDir}CC_satellite_12_14.pmtiles`,
+          'satellite basemap'
+        );
 
         setLoadingStatus('Basemaps ready!');
         setBasemapUris(uris);
       } catch (error) {
         console.error('Error loading basemaps:', error);
-        setLoadingStatus('Error loading basemaps: ' + error.message);
+        setLoadingStatus('Error: ' + error.message);
       }
     };
 
