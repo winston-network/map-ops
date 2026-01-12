@@ -8,8 +8,20 @@ Offline map application for avalanche control operations in Utah's Cottonwood Ca
 
 ## Current Status
 
-**Version:** 2.9.0
-**Phase:** Offline Basemap Testing (MBTiles + SQLite)
+**Version:** 2.11.0
+**Phase:** TestFlight Beta Distribution
+
+**Updates (Jan 12, 2026):**
+- **iOS build submitted to TestFlight** - Ready for beta testers
+- **Fixed basemap switching** - GeoJSON layers now persist when toggling topo/satellite (replaced unreliable `style.load` event with `isStyleLoaded()` polling)
+- **Updated map styling:**
+  - Avalanche paths: pink (#f472b6) for better contrast with orange markers
+  - Gates: yellow circles with black "G" text label
+  - Staging: orange circles with bold black text showing mile marker numbers, black border
+- **Toggleable debug panel** - Hidden by default, tap "Debug" button to show
+- **3-second loading screen** - Snowflakes animation displays for minimum 3 seconds
+- **Fixed Android build** - Renamed mismatched udot.png → udot.jpg (was JPEG with wrong extension)
+- **PR #2 created** - Ready to merge to main
 
 **Updates (Jan 11, 2026):**
 - **New architecture:** MBTiles + expo-sqlite (no HTTP server needed)
@@ -183,11 +195,12 @@ WHERE zoom_level = ? AND tile_column = ? AND tile_row = ?;
 - All branches merged to main, clean repo state
 
 **Next Steps:**
-1. ~~Get offline basemaps rendering in iOS~~ (v2.8.2 - testing)
-2. Verify basemap + GeoJSON rendering in build
-3. Merge working solution to main
-4. TestFlight beta distribution
+1. ~~Get offline basemaps rendering in iOS~~ ✅ Complete
+2. ~~Verify basemap + GeoJSON rendering in build~~ ✅ Complete
+3. ~~TestFlight beta distribution~~ ✅ iOS build submitted
+4. Merge PR #2 to main
 5. Field testing with GPS tracking
+6. Custom gate icons (currently yellow circles with "G")
 
 ---
 
@@ -197,9 +210,9 @@ MAP-OPS is an offline-capable map application designed for avalanche control tea
 
 - **Custom basemaps** - Toggle between Shaded Topo and Satellite (PMTiles format, no server needed)
 - **Operational layers** (GeoJSON):
-  - Avalanche Paths (polygons) - Red
-  - Closure Gates (points) - Orange
-  - Staging Areas (points) - Blue
+  - Avalanche Paths (polygons) - Pink
+  - Closure Gates (points) - Yellow circles with "G"
+  - Staging Areas (points) - Orange circles with mile marker numbers
 - **GPS location tracking** for field personnel
 - **Layer toggle** to show/hide different data layers
 - **Feature popups** with details when clicking points/polygons
@@ -434,8 +447,8 @@ git push origin feature/your-feature-name
 ### Phase 3: Distribution (IN PROGRESS)
 - [x] EAS Build setup
 - [x] Android APK sharing
-- [ ] iOS build (waiting for Apple Developer)
-- [ ] TestFlight beta
+- [x] iOS build submitted to App Store Connect
+- [x] TestFlight beta (pending Apple processing)
 - [ ] App Store submission
 
 ### Phase 4: Enhancements
