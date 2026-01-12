@@ -1,6 +1,9 @@
 # Large binary files (MBTiles, etc.)
 *.mbtiles
 *.pmtiles
+# Exception: include mobile app bundled basemaps
+!mobile/assets/basemap/*.pmtiles
+!mobile/assets/basemap/*.mbtiles
 
 # Dependencies
 node_modules/
