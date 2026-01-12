@@ -148,7 +148,7 @@ export default function App() {
   const [isReady, setIsReady] = useState(false);
   const [mapReady, setMapReady] = useState(false);
   const [tileBridgeReady, setTileBridgeReady] = useState(false);
-  const [loadingStatus, setLoadingStatus] = useState('Preparing basemaps...');
+  const [loadingStatus, setLoadingStatus] = useState('Loading...');
   const [errorDetails, setErrorDetails] = useState(null);
 
   // Selected feature for popup
@@ -157,6 +157,7 @@ export default function App() {
   // Refs
   const webViewRef = useRef(null);
   const tileBridgeRef = useRef(null);
+  const appStartTime = useRef(Date.now());
 
   // Generate snowflakes for loading animation
   const snowflakes = useRef(
@@ -233,7 +234,11 @@ export default function App() {
         case 'mapReady':
           console.log('[mapReady] Received from WebView');
           setMapReady(true);
-          setIsReady(true);
+          // Ensure minimum 3 second loading screen
+          const elapsed = Date.now() - appStartTime.current;
+          const minLoadTime = 3000;
+          const remainingDelay = Math.max(0, minLoadTime - elapsed);
+          setTimeout(() => setIsReady(true), remainingDelay);
           // Tell WebView that TileBridge is ready
           console.log('[mapReady] Sending tileBridgeReady');
           webViewRef.current?.postMessage(JSON.stringify({
