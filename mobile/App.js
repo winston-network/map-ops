@@ -149,6 +149,7 @@ export default function App() {
   const [mapReady, setMapReady] = useState(false);
   const [tileBridgeReady, setTileBridgeReady] = useState(false);
   const [loadingStatus, setLoadingStatus] = useState('Preparing basemaps...');
+  const [errorDetails, setErrorDetails] = useState(null);
 
   // Selected feature for popup
   const [selectedFeature, setSelectedFeature] = useState(null);
@@ -178,18 +179,31 @@ export default function App() {
         tileBridgeRef.current = new TileBridge();
 
         // Initialize with MBTiles files
-        const success = await tileBridgeRef.current.init(BUNDLED_BASEMAPS);
+        const result = await tileBridgeRef.current.init(BUNDLED_BASEMAPS);
 
-        if (success) {
+        if (result === true) {
           setLoadingStatus('Basemaps ready!');
           setTileBridgeReady(true);
           console.log('TileBridge initialized successfully');
+        } else if (result && result.error) {
+          // TileBridge returned error details
+          setLoadingStatus('Error initializing basemaps');
+          setErrorDetails({
+            message: result.error,
+            step: result.step,
+            stack: result.stack,
+          });
         } else {
           setLoadingStatus('Error initializing basemaps');
+          setErrorDetails({ message: 'Unknown error - init returned: ' + JSON.stringify(result) });
         }
       } catch (error) {
         console.error('Error initializing TileBridge:', error);
         setLoadingStatus('Error: ' + error.message);
+        setErrorDetails({
+          message: error.message,
+          stack: error.stack,
+        });
       }
     };
 
@@ -400,6 +414,18 @@ export default function App() {
           <View style={styles.loadingContent}>
             <SnowFillText progress={1} text="MAP-OPS" />
             <Text style={styles.loadingText}>{loadingStatus}</Text>
+            {errorDetails && (
+              <View style={styles.errorContainer}>
+                <Text style={styles.errorTitle}>DEBUG INFO:</Text>
+                {errorDetails.step && (
+                  <Text style={styles.errorStep}>Step: {errorDetails.step}</Text>
+                )}
+                <Text style={styles.errorMessage}>{errorDetails.message}</Text>
+                {errorDetails.stack && (
+                  <Text style={styles.errorStack}>{errorDetails.stack}</Text>
+                )}
+              </View>
+            )}
           </View>
         </View>
       )}
@@ -479,6 +505,39 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
     marginTop: 30,
+  },
+  errorContainer: {
+    marginTop: 20,
+    padding: 16,
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ef4444',
+    maxWidth: '90%',
+    maxHeight: 300,
+  },
+  errorTitle: {
+    color: '#ef4444',
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  errorStep: {
+    color: '#f97316',
+    fontSize: 11,
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  errorMessage: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '500',
+    marginBottom: 8,
+  },
+  errorStack: {
+    color: '#aaaaaa',
+    fontSize: 9,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
   header: {
     paddingTop: 50,

@@ -10,13 +10,17 @@ class TileBridge {
 
   async init(mbtilesPaths) {
     console.log('TileBridge.init called');
+    let currentStep = 'starting';
 
     try {
       for (const [name, assetModule] of Object.entries(mbtilesPaths)) {
         console.log(`Loading ${name} MBTiles...`);
 
         // Download asset to local storage
+        currentStep = `${name}: creating Asset.fromModule`;
         const asset = Asset.fromModule(assetModule);
+
+        currentStep = `${name}: calling downloadAsync`;
         await asset.downloadAsync();
 
         console.log(`Asset ${name} downloaded:`, {
@@ -25,11 +29,13 @@ class TileBridge {
           downloaded: asset.downloaded,
         });
 
+        currentStep = `${name}: checking localUri`;
         if (!asset.localUri) {
           throw new Error(`Asset ${name} has no localUri after download`);
         }
 
         // Copy to SQLite directory if needed
+        currentStep = `${name}: setting up paths`;
         const dbDir = `${FileSystem.documentDirectory}SQLite/`;
         const dbPath = `${dbDir}${name}.mbtiles`;
 
@@ -37,15 +43,18 @@ class TileBridge {
         console.log(`DB path: ${dbPath}`);
 
         // Ensure directory exists
+        currentStep = `${name}: creating SQLite directory`;
         await FileSystem.makeDirectoryAsync(dbDir, { intermediates: true }).catch((e) => {
           console.log('mkdir error (might already exist):', e.message);
         });
 
         // Copy file if it doesn't exist or force recopy
+        currentStep = `${name}: checking if file exists`;
         const info = await FileSystem.getInfoAsync(dbPath);
         console.log(`Existing file info:`, info);
 
         if (!info.exists) {
+          currentStep = `${name}: copying file to SQLite dir`;
           console.log(`Copying ${name} from ${asset.localUri} to ${dbPath}`);
           await FileSystem.copyAsync({
             from: asset.localUri,
@@ -57,12 +66,14 @@ class TileBridge {
         }
 
         // Open database
+        currentStep = `${name}: opening database`;
         console.log(`Opening database: ${name}.mbtiles`);
         const db = await SQLite.openDatabaseAsync(`${name}.mbtiles`);
         this.databases[name] = db;
         console.log(`Database ${name} opened successfully`);
 
         // Log metadata
+        currentStep = `${name}: querying metadata`;
         const metadata = await db.getAllAsync('SELECT name, value FROM metadata');
         console.log(`${name} metadata:`, metadata);
       }
@@ -71,8 +82,10 @@ class TileBridge {
       return true;
     } catch (error) {
       console.error('TileBridge init error:', error.message);
+      console.error('TileBridge init error at step:', currentStep);
       console.error('TileBridge init stack:', error.stack);
-      return false;
+      // Return error details for on-screen display
+      return { success: false, error: error.message, step: currentStep, stack: error.stack };
     }
   }
 
