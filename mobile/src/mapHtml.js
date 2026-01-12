@@ -14,13 +14,21 @@ export const mapHtml = `
     #map { width: 100%; height: 100%; }
     .maplibregl-ctrl-attrib { display: none !important; }
     .maplibregl-ctrl-logo { display: none !important; }
-    #debug { position: absolute; top: 10px; left: 10px; right: 10px; background: rgba(0,0,0,0.8); color: #0f0; font-family: monospace; font-size: 10px; padding: 8px; z-index: 9999; max-height: 150px; overflow: auto; border-radius: 4px; }
+    #debug { position: absolute; top: 40px; left: 10px; right: 10px; background: rgba(0,0,0,0.8); color: #0f0; font-family: monospace; font-size: 10px; padding: 8px; z-index: 9999; max-height: 150px; overflow: auto; border-radius: 4px; display: none; }
+    #debug-toggle { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.6); color: #fff; font-size: 11px; padding: 4px 8px; z-index: 10000; border-radius: 4px; border: none; cursor: pointer; }
   </style>
 </head>
 <body>
   <div id="map"></div>
+  <button id="debug-toggle" onclick="toggleDebug()">Debug</button>
   <div id="debug">Initializing...</div>
   <script>
+    // Debug toggle
+    let debugVisible = false;
+    function toggleDebug() {
+      debugVisible = !debugVisible;
+      document.getElementById('debug').style.display = debugVisible ? 'block' : 'none';
+    }
     // Debug logging
     const debugEl = document.getElementById('debug');
     const debugLog = [];
@@ -442,42 +450,64 @@ export const mapHtml = `
     // Switch basemap
     function switchBasemap(basemap) {
       if (!map || basemap === currentBasemap) return;
-      log('Switching basemap to: ' + basemap);
+      log('Switching to: ' + basemap);
       currentBasemap = basemap;
 
       const currentCenter = map.getCenter();
       const currentZoom = map.getZoom();
 
-      map.setStyle(createStyle(basemap));
-
       const reAddLayers = () => {
-        log('Re-adding layers after basemap switch...');
+        log('Re-adding GeoJSON layers...');
         try {
+          // Clear any existing sources first (safety)
+          ['avy-paths', 'gates', 'staging'].forEach(src => {
+            if (map.getSource(src)) {
+              log('Removing old source: ' + src);
+              const layers = map.getStyle().layers.filter(l => l.source === src);
+              layers.forEach(l => map.removeLayer(l.id));
+              map.removeSource(src);
+            }
+          });
+
           map.setCenter(currentCenter);
           map.setZoom(currentZoom);
+
           if (avyPathsData) {
-            log('Re-adding avy paths');
+            log('Adding avy paths (' + avyPathsData.features.length + ' features)');
             addAvyPathsLayer();
           }
           if (gatesData) {
-            log('Re-adding gates');
+            log('Adding gates (' + gatesData.features.length + ' features)');
             addGatesLayer();
           }
           if (stagingData) {
-            log('Re-adding staging');
+            log('Adding staging (' + stagingData.features.length + ' features)');
             addStagingLayer();
           }
-          log('Layers re-added successfully');
+
+          // Verify layers were added
+          const layers = map.getStyle().layers.map(l => l.id);
+          log('Final layers: ' + layers.join(', '));
         } catch (e) {
-          log('Error re-adding layers: ' + e.message);
+          log('ERROR re-adding: ' + e.message);
+          log('Stack: ' + e.stack);
         }
       };
 
-      // Use a small delay to ensure style is fully loaded
-      map.once('style.load', () => {
-        log('Style loaded, waiting briefly...');
-        setTimeout(reAddLayers, 100);
-      });
+      // Set new style
+      map.setStyle(createStyle(basemap));
+
+      // Poll for style loaded since style.load event is unreliable
+      const waitForStyle = () => {
+        if (map.isStyleLoaded()) {
+          log('Style ready for ' + basemap);
+          setTimeout(reAddLayers, 100);
+        } else {
+          log('Waiting for style...');
+          setTimeout(waitForStyle, 100);
+        }
+      };
+      setTimeout(waitForStyle, 50);
     }
 
     // Update user location
