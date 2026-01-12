@@ -512,7 +512,7 @@ export default function App() {
         <Text style={styles.disclaimerText}>For conceptual testing only. Not for operational use.</Text>
         <View style={styles.logoRow}>
           <Image source={require('./assets/logos/usfs.png')} style={styles.footerLogo} />
-          <Image source={require('./assets/logos/udot.png')} style={styles.footerLogo} />
+          <Image source={require('./assets/logos/udot.jpg')} style={styles.footerLogo} />
           <Image source={require('./assets/logos/alta.png')} style={styles.footerLogo} />
           <Image source={require('./assets/logos/brighton.png')} style={styles.footerLogo} />
         </View>
