@@ -1,106 +1,137 @@
-// TileBridge - Reads PMTiles and serves tiles to WebView
-import RNFS from 'react-native-fs';
-import { PMTiles } from 'pmtiles';
+// TileBridge - Reads tiles from MBTiles (SQLite) and serves to WebView
+import * as SQLite from 'expo-sqlite';
+import * as FileSystem from 'expo-file-system';
+import { Asset } from 'expo-asset';
 
-// Custom source that reads from local file using react-native-fs
-class FileSource {
-  constructor(filePath) {
-    // Remove file:// prefix if present
-    this.filePath = filePath.replace('file://', '');
-  }
-
-  async getBytes(offset, length) {
-    try {
-      // Read bytes from file at offset using react-native-fs
-      const base64Data = await RNFS.read(this.filePath, length, offset, 'base64');
-
-      // Convert base64 to ArrayBuffer
-      const binaryString = global.atob ? global.atob(base64Data) : Buffer.from(base64Data, 'base64').toString('binary');
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-
-      return {
-        data: bytes.buffer,
-        etag: undefined,
-        cacheControl: undefined,
-        expires: undefined,
-      };
-    } catch (error) {
-      console.error('FileSource getBytes error:', error);
-      throw error;
-    }
-  }
-
-  getKey() {
-    return this.filePath;
-  }
-}
-
-// Simple base64 encode for React Native
-function toBase64(arrayBuffer) {
-  const bytes = new Uint8Array(arrayBuffer);
-  let binary = '';
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return global.btoa ? global.btoa(binary) : Buffer.from(binary, 'binary').toString('base64');
-}
-
-// TileBridge class manages PMTiles instances
-export class TileBridge {
+class TileBridge {
   constructor() {
-    this.pmtilesInstances = {};
+    this.databases = {};
   }
 
-  async init(basemapPaths) {
+  async init(mbtilesPaths) {
+    console.log('TileBridge.init called');
+
     try {
-      console.log('TileBridge init with paths:', basemapPaths);
+      for (const [name, assetModule] of Object.entries(mbtilesPaths)) {
+        console.log(`Loading ${name} MBTiles...`);
 
-      if (basemapPaths.topo) {
-        console.log('Initializing topo PMTiles from:', basemapPaths.topo);
-        const topoSource = new FileSource(basemapPaths.topo);
-        this.pmtilesInstances.topo = new PMTiles(topoSource);
-        const header = await this.pmtilesInstances.topo.getHeader();
-        console.log('Topo PMTiles header:', header);
+        // Download asset to local storage
+        const asset = Asset.fromModule(assetModule);
+        await asset.downloadAsync();
+
+        console.log(`Asset ${name} downloaded:`, {
+          localUri: asset.localUri,
+          uri: asset.uri,
+          downloaded: asset.downloaded,
+        });
+
+        if (!asset.localUri) {
+          throw new Error(`Asset ${name} has no localUri after download`);
+        }
+
+        // Copy to SQLite directory if needed
+        const dbDir = `${FileSystem.documentDirectory}SQLite/`;
+        const dbPath = `${dbDir}${name}.mbtiles`;
+
+        console.log(`DB directory: ${dbDir}`);
+        console.log(`DB path: ${dbPath}`);
+
+        // Ensure directory exists
+        await FileSystem.makeDirectoryAsync(dbDir, { intermediates: true }).catch((e) => {
+          console.log('mkdir error (might already exist):', e.message);
+        });
+
+        // Copy file if it doesn't exist or force recopy
+        const info = await FileSystem.getInfoAsync(dbPath);
+        console.log(`Existing file info:`, info);
+
+        if (!info.exists) {
+          console.log(`Copying ${name} from ${asset.localUri} to ${dbPath}`);
+          await FileSystem.copyAsync({
+            from: asset.localUri,
+            to: dbPath,
+          });
+          console.log(`Copy complete for ${name}`);
+        } else {
+          console.log(`${name} already exists at ${dbPath}`);
+        }
+
+        // Open database
+        console.log(`Opening database: ${name}.mbtiles`);
+        const db = await SQLite.openDatabaseAsync(`${name}.mbtiles`);
+        this.databases[name] = db;
+        console.log(`Database ${name} opened successfully`);
+
+        // Log metadata
+        const metadata = await db.getAllAsync('SELECT name, value FROM metadata');
+        console.log(`${name} metadata:`, metadata);
       }
 
-      if (basemapPaths.satellite) {
-        console.log('Initializing satellite PMTiles from:', basemapPaths.satellite);
-        const satSource = new FileSource(basemapPaths.satellite);
-        this.pmtilesInstances.satellite = new PMTiles(satSource);
-        const header = await this.pmtilesInstances.satellite.getHeader();
-        console.log('Satellite PMTiles header:', header);
-      }
-
-      console.log('TileBridge initialized successfully');
+      console.log('TileBridge initialized with databases:', Object.keys(this.databases));
       return true;
     } catch (error) {
-      console.error('TileBridge init error:', error);
+      console.error('TileBridge init error:', error.message);
+      console.error('TileBridge init stack:', error.stack);
       return false;
     }
   }
 
   async getTile(basemap, z, x, y) {
+    const db = this.databases[basemap];
+    if (!db) {
+      console.log(`No database for basemap: ${basemap}`);
+      return null;
+    }
+
     try {
-      const pmtiles = this.pmtilesInstances[basemap];
-      if (!pmtiles) {
-        console.error(`No PMTiles instance for basemap: ${basemap}`);
-        return null;
+      // MBTiles uses TMS scheme - flip y coordinate
+      const tmsY = (1 << z) - 1 - y;
+
+      const result = await db.getFirstAsync(
+        'SELECT tile_data FROM tiles WHERE zoom_level = ? AND tile_column = ? AND tile_row = ?',
+        [z, x, tmsY]
+      );
+
+      if (result && result.tile_data) {
+        // Convert blob to base64
+        // tile_data is a Uint8Array, convert to base64
+        const bytes = new Uint8Array(result.tile_data);
+        let binary = '';
+        for (let i = 0; i < bytes.length; i++) {
+          binary += String.fromCharCode(bytes[i]);
+        }
+        return btoa(binary);
       }
 
-      const tile = await pmtiles.getZxy(z, x, y);
-      if (!tile || !tile.data) {
-        return null;
-      }
-
-      // Convert ArrayBuffer to base64
-      return toBase64(tile.data);
+      return null;
     } catch (error) {
       // Tile not found is common, don't log as error
       return null;
     }
+  }
+
+  async getMetadata(basemap) {
+    const db = this.databases[basemap];
+    if (!db) return null;
+
+    try {
+      const rows = await db.getAllAsync('SELECT name, value FROM metadata');
+      const metadata = {};
+      for (const row of rows) {
+        metadata[row.name] = row.value;
+      }
+      return metadata;
+    } catch (error) {
+      console.error('getMetadata error:', error);
+      return null;
+    }
+  }
+
+  async close() {
+    for (const [name, db] of Object.entries(this.databases)) {
+      await db.closeAsync();
+    }
+    this.databases = {};
   }
 }
 

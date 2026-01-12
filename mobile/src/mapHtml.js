@@ -1,4 +1,4 @@
-// Map HTML for WebView - MapLibre GL JS with tiles from React Native
+// Map HTML for WebView - MapLibre GL JS with tiles from React Native via postMessage
 export const mapHtml = `
 <!DOCTYPE html>
 <html>
@@ -14,29 +14,109 @@ export const mapHtml = `
     #map { width: 100%; height: 100%; }
     .maplibregl-ctrl-attrib { display: none !important; }
     .maplibregl-ctrl-logo { display: none !important; }
+    #debug { position: absolute; top: 10px; left: 10px; right: 10px; background: rgba(0,0,0,0.8); color: #0f0; font-family: monospace; font-size: 10px; padding: 8px; z-index: 9999; max-height: 150px; overflow: auto; border-radius: 4px; }
   </style>
 </head>
 <body>
   <div id="map"></div>
+  <div id="debug">Initializing...</div>
   <script>
+    // Debug logging
+    const debugEl = document.getElementById('debug');
+    const debugLog = [];
+    function log(msg) {
+      debugLog.push(msg);
+      if (debugLog.length > 15) debugLog.shift();
+      debugEl.innerHTML = debugLog.join('<br>');
+      console.log(msg);
+    }
+
     // Current state
     let currentBasemap = 'topo';
     let showAvyPaths = true;
     let showGates = true;
     let showStaging = true;
     let map = null;
-    let tilesReady = false;
+    let tileBridgeReady = false;
 
-    // Tile cache
-    const tileCache = new Map();
+    // Tile request tracking
+    let requestId = 0;
+    const pendingRequests = {};
 
-    // Pending tile requests (waiting for RN response)
-    const pendingTileRequests = new Map();
+    log('Waiting for TileBridge...');
 
     // GeoJSON data
     let avyPathsData = null;
     let gatesData = null;
     let stagingData = null;
+
+    // Request a tile from React Native
+    function requestTile(basemap, z, x, y) {
+      return new Promise((resolve, reject) => {
+        const id = ++requestId;
+        pendingRequests[id] = { resolve, reject };
+
+        sendMessage({
+          type: 'getTile',
+          requestId: id,
+          basemap,
+          z,
+          x,
+          y
+        });
+
+        // Timeout after 10 seconds
+        setTimeout(() => {
+          if (pendingRequests[id]) {
+            delete pendingRequests[id];
+            reject(new Error('Tile request timeout'));
+          }
+        }, 10000);
+      });
+    }
+
+    // Handle tile response from React Native
+    function handleTileResponse(id, tileData) {
+      const request = pendingRequests[id];
+      if (request) {
+        delete pendingRequests[id];
+        if (tileData) {
+          // Convert base64 to Uint8Array
+          const binary = atob(tileData);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i);
+          }
+          request.resolve(bytes);
+        } else {
+          request.reject(new Error('Tile not found'));
+        }
+      }
+    }
+
+    // Register custom protocol for tile loading
+    function registerTileProtocol() {
+      maplibregl.addProtocol('rntile', (params, callback) => {
+        // Parse URL: rntile://basemap/z/x/y
+        const url = params.url.replace('rntile://', '');
+        const parts = url.split('/');
+        const basemap = parts[0];
+        const z = parseInt(parts[1]);
+        const x = parseInt(parts[2]);
+        const y = parseInt(parts[3]);
+
+        requestTile(basemap, z, x, y)
+          .then(data => {
+            callback(null, data, null, null);
+          })
+          .catch(err => {
+            callback(err);
+          });
+
+        return { cancel: () => {} };
+      });
+      log('Custom tile protocol registered');
+    }
 
     // Calculate bounds from GeoJSON
     function calculateBounds(geojsonLayers) {
@@ -62,93 +142,23 @@ export const mapHtml = `
       return [[minLng - 0.01, minLat - 0.01], [maxLng + 0.01, maxLat + 0.01]];
     }
 
-    // Request tile from React Native
-    function requestTile(basemap, z, x, y) {
-      const key = basemap + '/' + z + '/' + x + '/' + y;
-
-      // Check cache first
-      if (tileCache.has(key)) {
-        return Promise.resolve(tileCache.get(key));
-      }
-
-      // Check if already pending
-      if (pendingTileRequests.has(key)) {
-        return pendingTileRequests.get(key);
-      }
-
-      // Create new request
-      const promise = new Promise((resolve, reject) => {
-        // Store resolver for when RN responds
-        pendingTileRequests.set(key, { resolve, reject, promise: null });
-
-        // Request tile from React Native
-        sendMessage({
-          type: 'getTile',
-          basemap: basemap,
-          z: z,
-          x: x,
-          y: y,
-          key: key
-        });
-
-        // Timeout after 10 seconds
-        setTimeout(() => {
-          if (pendingTileRequests.has(key)) {
-            pendingTileRequests.delete(key);
-            resolve(null); // Return null on timeout
-          }
-        }, 10000);
-      });
-
-      pendingTileRequests.get(key).promise = promise;
-      return promise;
-    }
-
-    // Handle tile response from React Native
-    function handleTileResponse(key, base64Data) {
-      if (pendingTileRequests.has(key)) {
-        const { resolve } = pendingTileRequests.get(key);
-        pendingTileRequests.delete(key);
-
-        if (base64Data) {
-          const dataUrl = 'data:image/png;base64,' + base64Data;
-          tileCache.set(key, dataUrl);
-          resolve(dataUrl);
-        } else {
-          resolve(null);
-        }
-      }
-    }
-
-    // Custom protocol for loading tiles from RN
-    maplibregl.addProtocol('rntile', (params, callback) => {
-      // URL format: rntile://basemap/z/x/y
-      const url = params.url.replace('rntile://', '');
-      const parts = url.split('/');
-      const basemap = parts[0];
-      const z = parseInt(parts[1]);
-      const x = parseInt(parts[2]);
-      const y = parseInt(parts[3]);
-
-      requestTile(basemap, z, x, y)
-        .then(dataUrl => {
-          if (dataUrl) {
-            // Fetch the data URL and return as ArrayBuffer
-            fetch(dataUrl)
-              .then(response => response.arrayBuffer())
-              .then(data => callback(null, data, null, null))
-              .catch(err => callback(err));
-          } else {
-            callback(new Error('Tile not found'));
-          }
-        })
-        .catch(err => callback(err));
-
-      return { cancel: () => {} };
-    });
-
     // Create style with custom tile source
     function createStyle(basemap) {
+      if (!tileBridgeReady) {
+        log('createStyle: TileBridge not ready');
+        return {
+          version: 8,
+          sources: {},
+          layers: [{
+            id: 'background',
+            type: 'background',
+            paint: { 'background-color': '#1a1a2e' }
+          }]
+        };
+      }
+
+      log('Creating style for: ' + basemap);
+
       return {
         version: 8,
         sources: {
@@ -156,7 +166,7 @@ export const mapHtml = `
             type: 'raster',
             tiles: ['rntile://' + basemap + '/{z}/{x}/{y}'],
             tileSize: 256,
-            minzoom: 10,
+            minzoom: 0,
             maxzoom: 16
           }
         },
@@ -174,6 +184,11 @@ export const mapHtml = `
 
     // Initialize map
     function initMap() {
+      log('initMap called');
+
+      // Register custom tile protocol
+      registerTileProtocol();
+
       map = new maplibregl.Map({
         container: 'map',
         style: createStyle(currentBasemap),
@@ -183,12 +198,24 @@ export const mapHtml = `
       });
 
       map.on('load', () => {
-        // Notify React Native that map is ready
+        log('Map loaded, sending mapReady');
         sendMessage({ type: 'mapReady' });
       });
 
       map.on('error', (e) => {
-        console.error('Map error:', e);
+        log('Map error: ' + (e.error ? e.error.message : JSON.stringify(e)));
+      });
+
+      map.on('sourcedataloading', (e) => {
+        if (e.sourceId === 'basemap') {
+          log('Loading basemap tiles...');
+        }
+      });
+
+      map.on('sourcedata', (e) => {
+        if (e.sourceId === 'basemap' && e.isSourceLoaded) {
+          log('Basemap tiles loaded!');
+        }
       });
 
       // Click handlers for features
@@ -403,6 +430,34 @@ export const mapHtml = `
         const data = JSON.parse(event.data);
 
         switch (data.type) {
+          case 'tileBridgeReady':
+            log('TileBridge ready!');
+            tileBridgeReady = true;
+            // Reload map style with basemap now that TileBridge is ready
+            if (map) {
+              log('Setting map style with basemap');
+              map.setStyle(createStyle(currentBasemap));
+              // Re-add layers after style loads
+              map.once('style.load', () => {
+                log('Style loaded, adding layers');
+                if (avyPathsData) addAvyPathsLayer();
+                if (gatesData) addGatesLayer();
+                if (stagingData) addStagingLayer();
+                // Fit bounds if we have data
+                const bounds = calculateBounds([avyPathsData, gatesData, stagingData]);
+                if (bounds[0][0] !== Infinity) {
+                  map.fitBounds(bounds, { padding: 50 });
+                }
+                log('Layers added, bounds fit');
+              });
+            }
+            break;
+
+          case 'tileResponse':
+            // Handle tile data from React Native
+            handleTileResponse(data.requestId, data.tileData);
+            break;
+
           case 'setGeoJSON':
             avyPathsData = data.avyPaths;
             gatesData = data.gates;
@@ -436,16 +491,8 @@ export const mapHtml = `
             switchBasemap(data.basemap);
             break;
 
-          case 'tileResponse':
-            handleTileResponse(data.key, data.data);
-            break;
-
           case 'updateLocation':
             updateUserLocation(data.lng, data.lat);
-            break;
-
-          case 'tilesReady':
-            tilesReady = true;
             break;
         }
       } catch (e) {

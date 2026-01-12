@@ -3,9 +3,8 @@ import { StyleSheet, View, Text, TouchableOpacity, Image, Animated, Dimensions, 
 import { WebView } from 'react-native-webview';
 import { useState, useEffect, useRef } from 'react';
 import * as Location from 'expo-location';
-import * as FileSystem from 'expo-file-system';
-import { Asset } from 'expo-asset';
-import { TileBridge } from './src/TileBridge';
+import TileBridge from './src/TileBridge';
+import { mapHtml } from './src/mapHtml';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -132,13 +131,10 @@ import stagingData from './assets/layers/BCC_Staging.json';
 // Import app config for version
 import appConfig from './app.json';
 
-// Import HTML for map
-import { mapHtml } from './src/mapHtml';
-
-// Bundled PMTiles basemaps
+// Bundled MBTiles basemaps
 const BUNDLED_BASEMAPS = {
-  topo: require('./assets/basemap/CC_shaded_topo.pmtiles'),
-  satellite: require('./assets/basemap/CC_satellite_12_14.pmtiles'),
+  topo: require('./assets/basemap/CC_shaded_topo.mbtiles'),
+  satellite: require('./assets/basemap/CC_satellite_12_14.mbtiles'),
 };
 
 export default function App() {
@@ -151,19 +147,15 @@ export default function App() {
   // App state
   const [isReady, setIsReady] = useState(false);
   const [mapReady, setMapReady] = useState(false);
-
-  // Basemap file URIs (populated after copying assets)
-  const [basemapUris, setBasemapUris] = useState(null);
+  const [tileBridgeReady, setTileBridgeReady] = useState(false);
   const [loadingStatus, setLoadingStatus] = useState('Preparing basemaps...');
-
-  // Tile bridge for serving tiles to WebView
-  const tileBridgeRef = useRef(null);
 
   // Selected feature for popup
   const [selectedFeature, setSelectedFeature] = useState(null);
 
-  // WebView ref
+  // Refs
   const webViewRef = useRef(null);
+  const tileBridgeRef = useRef(null);
 
   // Generate snowflakes for loading animation
   const snowflakes = useRef(
@@ -176,72 +168,39 @@ export default function App() {
     }))
   ).current;
 
-  // Load bundled PMTiles and copy to accessible location
+  // Initialize TileBridge with MBTiles databases
   useEffect(() => {
-    const loadBasemaps = async () => {
+    const initTileBridge = async () => {
       try {
-        setLoadingStatus('Loading basemap assets...');
+        setLoadingStatus('Loading basemap databases...');
 
-        const basemapDir = `${FileSystem.documentDirectory}basemaps/`;
-
-        // Create basemaps directory if it doesn't exist
-        try {
-          await FileSystem.makeDirectoryAsync(basemapDir, { intermediates: true });
-        } catch (e) {
-          // Directory might already exist, that's fine
-        }
-
-        const uris = {};
-
-        // Helper to copy asset if needed
-        const copyAssetIfNeeded = async (assetModule, destPath, name) => {
-          setLoadingStatus(`Preparing ${name}...`);
-          const asset = Asset.fromModule(assetModule);
-          await asset.downloadAsync();
-
-          // Try to copy - if file exists, copyAsync will fail, which is fine
-          try {
-            await FileSystem.copyAsync({
-              from: asset.localUri,
-              to: destPath,
-            });
-          } catch (e) {
-            // File likely already exists, that's fine
-          }
-          return destPath;
-        };
-
-        // Load topo basemap
-        uris.topo = await copyAssetIfNeeded(
-          BUNDLED_BASEMAPS.topo,
-          `${basemapDir}CC_shaded_topo.pmtiles`,
-          'topo basemap'
-        );
-
-        // Load satellite basemap
-        uris.satellite = await copyAssetIfNeeded(
-          BUNDLED_BASEMAPS.satellite,
-          `${basemapDir}CC_satellite_12_14.pmtiles`,
-          'satellite basemap'
-        );
-
-        // Initialize tile bridge
-        setLoadingStatus('Initializing tile server...');
+        // Create TileBridge instance
         tileBridgeRef.current = new TileBridge();
-        const bridgeOk = await tileBridgeRef.current.init(uris);
-        if (!bridgeOk) {
-          throw new Error('Failed to initialize tile bridge');
-        }
 
-        setLoadingStatus('Basemaps ready!');
-        setBasemapUris(uris);
+        // Initialize with MBTiles files
+        const success = await tileBridgeRef.current.init(BUNDLED_BASEMAPS);
+
+        if (success) {
+          setLoadingStatus('Basemaps ready!');
+          setTileBridgeReady(true);
+          console.log('TileBridge initialized successfully');
+        } else {
+          setLoadingStatus('Error initializing basemaps');
+        }
       } catch (error) {
-        console.error('Error loading basemaps:', error);
+        console.error('Error initializing TileBridge:', error);
         setLoadingStatus('Error: ' + error.message);
       }
     };
 
-    loadBasemaps();
+    initTileBridge();
+
+    // Cleanup on unmount
+    return () => {
+      if (tileBridgeRef.current) {
+        tileBridgeRef.current.close();
+      }
+    };
   }, []);
 
   // Send message to WebView
@@ -252,7 +211,7 @@ export default function App() {
   };
 
   // Handle messages from WebView
-  const handleWebViewMessage = (event) => {
+  const handleWebViewMessage = async (event) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
 
@@ -260,9 +219,9 @@ export default function App() {
         case 'mapReady':
           setMapReady(true);
           setIsReady(true);
-          // Tell WebView tiles are ready
+          // Tell WebView that TileBridge is ready
           webViewRef.current?.postMessage(JSON.stringify({
-            type: 'tilesReady',
+            type: 'tileBridgeReady',
           }));
           // Send GeoJSON data to map
           webViewRef.current?.postMessage(JSON.stringify({
@@ -276,22 +235,13 @@ export default function App() {
         case 'getTile':
           // Handle tile request from WebView
           if (tileBridgeRef.current) {
-            tileBridgeRef.current.getTile(data.basemap, data.z, data.x, data.y)
-              .then(tileData => {
-                webViewRef.current?.postMessage(JSON.stringify({
-                  type: 'tileResponse',
-                  key: data.key,
-                  data: tileData,
-                }));
-              })
-              .catch(err => {
-                console.error('Tile request error:', err);
-                webViewRef.current?.postMessage(JSON.stringify({
-                  type: 'tileResponse',
-                  key: data.key,
-                  data: null,
-                }));
-              });
+            const { requestId, basemap, z, x, y } = data;
+            const tileData = await tileBridgeRef.current.getTile(basemap, z, x, y);
+            webViewRef.current?.postMessage(JSON.stringify({
+              type: 'tileResponse',
+              requestId,
+              tileData, // base64 encoded or null
+            }));
           }
           break;
 
@@ -436,7 +386,7 @@ export default function App() {
       </View>
 
       {/* Loading Screen with Snow Animation */}
-      {(!isReady || !basemapUris) && (
+      {(!isReady || !tileBridgeReady) && (
         <View style={styles.loadingContainer}>
           {snowflakes.map(flake => (
             <Snowflake
@@ -454,8 +404,8 @@ export default function App() {
         </View>
       )}
 
-      {/* WebView Map - only render when basemaps are ready */}
-      {basemapUris && (
+      {/* WebView Map */}
+      {tileBridgeReady && (
         <WebView
           ref={webViewRef}
           source={{ html: mapHtml }}
