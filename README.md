@@ -8,15 +8,16 @@ Offline map application for avalanche control operations in Utah's Cottonwood Ca
 
 ## Current Status
 
-**Version:** 2.8.2
-**Phase:** Offline Basemap Testing
+**Version:** 2.9.0
+**Phase:** Offline Basemap Testing (MBTiles + SQLite)
 
-**Updates (Jan 10, 2026):**
-- Offline basemaps working via WebView + GCDWebServer architecture
-- PMTiles bundled with app (no download required)
-- Switched from MapLibre React Native to WebView + MapLibre GL JS
-- GeoJSON layers with click handlers and popups
-- Snow loading animation while basemaps initialize
+**Updates (Jan 11, 2026):**
+- **New architecture:** MBTiles + expo-sqlite (no HTTP server needed)
+- Tiles read directly from SQLite databases via TileBridge
+- WebView requests tiles via postMessage, React Native responds with base64 data
+- Custom `rntile://` protocol in MapLibre for tile loading
+- Bundled MBTiles files (~85 MB total)
+- Added expo-sqlite plugin for native SQLite access
 
 **Last Stable Version:** [v1.5.0](https://github.com/winston-network/map-ops/releases/tag/v1.5.0) - Pre-offline basemap work, uses online fallback tiles
 
@@ -34,47 +35,59 @@ Offline map application for avalanche control operations in Utah's Cottonwood Ca
 | MBTiles with `mbtiles://` protocol | Failed | MapLibre RN doesn't support custom protocols |
 | TileBridge (RN reads PMTiles, sends to WebView) | Failed | expo-file-system doesn't support byte range reads |
 | @dr.pogodin/react-native-static-server | Failed | Build errors with Expo |
-| **WebView + GCDWebServer + PMTiles** | **Working** | Current solution (v2.8.x) |
+| WebView + GCDWebServer + PMTiles | Failed | iOS WKWebView cannot access localhost HTTP servers |
+| react-native-static-server v0.5.0 | Failed | Same localhost restriction on iOS |
+| **MBTiles + expo-sqlite + postMessage** | **Testing** | Current solution (v2.9.x) |
 
-**Current Architecture (v2.8.x):**
-1. PMTiles bundled with app via expo-asset (no user download)
-2. On first launch, copy PMTiles to documentDirectory
-3. Start local HTTP server (react-native-static-server/GCDWebServer) on port 9876
-4. WebView loads MapLibre GL JS + pmtiles-protocol library
-5. MapLibre fetches tiles via `pmtiles://http://localhost:9876/filename.pmtiles`
-6. GeoJSON layers rendered on top of basemap
+**Current Architecture (v2.9.x):**
+1. MBTiles files bundled with app via expo-asset
+2. On first launch, TileBridge copies MBTiles to SQLite directory
+3. TileBridge opens databases using expo-sqlite
+4. WebView registers custom `rntile://` protocol in MapLibre
+5. When MapLibre needs a tile, it calls `rntile://topo/12/831/1557`
+6. WebView sends postMessage to React Native with tile coordinates
+7. TileBridge queries SQLite: `SELECT tile_data FROM tiles WHERE zoom_level=? AND tile_column=? AND tile_row=?`
+8. Returns base64-encoded tile data back to WebView
+9. MapLibre renders the tile
+
+**Why MBTiles + SQLite instead of HTTP server:**
+- iOS WKWebView has security restrictions that block localhost HTTP requests
+- expo-sqlite provides native SQLite access without HTTP
+- postMessage bridge is reliable and doesn't require network permissions
+- MBTiles is standard SQLite format, widely supported
 
 **Why WebView instead of MapLibre React Native:**
-- MapLibre RN doesn't support custom protocols needed for PMTiles
-- WebView + MapLibre GL JS has full pmtiles-protocol support
-- Same architecture as Wasatch Backcountry Skiing app
+- MapLibre RN doesn't support custom protocols needed for offline tiles
+- WebView + MapLibre GL JS allows custom tile loading via addProtocol()
+- Similar to Wasatch Backcountry Skiing app architecture
 
 **Bundled Basemap Files:**
-- `CC_shaded_topo.pmtiles` (58 MB) - Shaded relief topo, zoom 10-16
-- `CC_satellite_12_14.pmtiles` (25 MB) - Satellite imagery, zoom 12-14
+- `CC_shaded_topo.mbtiles` (60 MB) - Shaded relief topo, zoom 10-16
+- `CC_satellite_12_14.mbtiles` (26 MB) - Satellite imagery, zoom 12-14
+
+**Future Improvement:** Move MBTiles to GitHub Releases for download-on-first-launch (smaller app bundle)
 
 **Reference App:** Wasatch Backcountry Skiing (iOS) - uses GCDWebServer + SQLite for offline tiles
 
 ---
 
-## Mobile Architecture (v2.8.x)
+## Mobile Architecture (v2.9.x)
 
 ```
 mobile/
-├── App.js                    # Main app, WebView container, layer toggles
-├── app.json                  # Expo config, version, plugins
-├── metro.config.js           # Bundler config (pmtiles as asset)
+├── App.js                    # Main app, WebView container, layer toggles, tile request handler
+├── app.json                  # Expo config, version, plugins (expo-sqlite)
+├── metro.config.js           # Bundler config (mbtiles as asset)
 ├── package.json              # Dependencies
 │
 ├── src/
-│   ├── mapHtml.js            # WebView HTML with MapLibre GL JS
-│   ├── StaticServer.js       # GCDWebServer wrapper (localhost:9876)
-│   └── TileBridge.js         # (unused) Direct PMTiles reader attempt
+│   ├── mapHtml.js            # WebView HTML with MapLibre GL JS + custom rntile:// protocol
+│   └── TileBridge.js         # SQLite reader - queries MBTiles, returns base64 tiles
 │
 └── assets/
     ├── basemap/
-    │   ├── CC_shaded_topo.pmtiles      # Bundled topo basemap
-    │   └── CC_satellite_12_14.pmtiles  # Bundled satellite basemap
+    │   ├── CC_shaded_topo.mbtiles      # Bundled topo basemap (60 MB)
+    │   └── CC_satellite_12_14.mbtiles  # Bundled satellite basemap (26 MB)
     ├── layers/
     │   ├── BCC_AvyPaths.json           # Avalanche paths (polygons)
     │   ├── BCC_Gates.json              # Control gates (points)
@@ -85,20 +98,45 @@ mobile/
 
 **Key Dependencies:**
 - `react-native-webview` - WebView for MapLibre GL JS
-- `react-native-static-server` - GCDWebServer (iOS) / NanoHTTPD (Android)
-- `expo-asset` - Bundle PMTiles with app
-- `expo-file-system` - Copy assets to documentDirectory
+- `expo-sqlite` - Native SQLite access for reading MBTiles
+- `expo-asset` - Bundle MBTiles with app
+- `expo-file-system` - Copy assets to SQLite directory
 
 **Data Flow:**
 ```
 App.js
-  ├─> expo-asset: Load bundled PMTiles
-  ├─> expo-file-system: Copy to documentDirectory
-  ├─> StaticServer: Start HTTP server on port 9876
+  ├─> expo-asset: Load bundled MBTiles
+  ├─> TileBridge.init(): Copy to SQLite dir, open databases
   └─> WebView
-        ├─> mapHtml.js: MapLibre GL JS + pmtiles-protocol
-        ├─> Basemap: pmtiles://http://localhost:9876/filename.pmtiles
+        ├─> mapHtml.js: MapLibre GL JS + custom rntile:// protocol
+        ├─> Tile request: rntile://topo/12/831/1557
+        │     └─> postMessage to React Native
+        │           └─> TileBridge.getTile(basemap, z, x, y)
+        │                 └─> SQLite query → base64 tile data
+        │                       └─> postMessage back to WebView
         └─> GeoJSON: Sent via postMessage from App.js
+```
+
+**TileBridge.js - Key Functions:**
+```javascript
+// Initialize databases from bundled assets
+await tileBridge.init({
+  topo: require('./assets/basemap/CC_shaded_topo.mbtiles'),
+  satellite: require('./assets/basemap/CC_satellite_12_14.mbtiles'),
+});
+
+// Get a tile (called via postMessage from WebView)
+const base64Tile = await tileBridge.getTile('topo', 12, 831, 1557);
+// Returns base64-encoded PNG/JPEG tile data, or null if not found
+```
+
+**MBTiles Schema (SQLite):**
+```sql
+-- Tiles table (TMS coordinate scheme)
+SELECT tile_data FROM tiles
+WHERE zoom_level = ? AND tile_column = ? AND tile_row = ?;
+
+-- Note: MBTiles uses TMS (flipped Y): tmsY = (1 << z) - 1 - y
 ```
 
 ---
@@ -422,12 +460,13 @@ git push origin feature/your-feature-name
 | Component | Technology |
 |-----------|------------|
 | Web Map | MapLibre GL JS + PMTiles |
-| Mobile Map | WebView + MapLibre GL JS + pmtiles-protocol |
+| Mobile Map | WebView + MapLibre GL JS + custom rntile:// protocol |
 | Mobile Framework | React Native 0.81 + Expo SDK 54 |
-| Mobile Tile Server | react-native-static-server (GCDWebServer) |
-| Tile Format | PMTiles (bundled with app) |
+| Mobile Tile Access | expo-sqlite (reads MBTiles directly) |
+| Tile Format | MBTiles (SQLite, bundled with app) |
 | Data Format | GeoJSON |
 | Web Tile Server | **None needed** (HTTP range requests) |
+| Mobile Tile Server | **None needed** (SQLite + postMessage) |
 
 ---
 
