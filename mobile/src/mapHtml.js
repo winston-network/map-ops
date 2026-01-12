@@ -335,7 +335,7 @@ export const mapHtml = `
           type: 'fill',
           source: 'avy-paths',
           paint: {
-            'fill-color': '#f87171',
+            'fill-color': '#f472b6',
             'fill-opacity': 0.3
           }
         });
@@ -345,7 +345,7 @@ export const mapHtml = `
           type: 'line',
           source: 'avy-paths',
           paint: {
-            'line-color': '#f87171',
+            'line-color': '#f472b6',
             'line-width': 2,
             'line-opacity': 0.8
           }
@@ -355,33 +355,56 @@ export const mapHtml = `
       updateLayerVisibility();
     }
 
-    // Pre-load gate icon image object
+    // Pre-load gate icon
     let gateIconImage = null;
-    (function preloadGateIcon() {
+    function loadGateIcon() {
+      log('Loading gate icon...');
       const img = new Image();
-      img.onload = () => {
+      img.onload = function() {
+        log('Gate icon loaded: ' + img.width + 'x' + img.height);
         gateIconImage = img;
-        log('Gate icon preloaded');
+      };
+      img.onerror = function(e) {
+        log('Gate icon FAILED to load');
       };
       img.src = GATE_ICON_BASE64;
-    })();
+    }
+    // Load after a brief delay to ensure logging is ready
+    setTimeout(loadGateIcon, 100);
 
-    // Add gates layer - yellow circles
+    // Add gates layer - yellow circles with "G" text
     function addGatesLayer() {
       if (!map || !gatesData) return;
       if (map.getSource('gates')) return;
 
       map.addSource('gates', { type: 'geojson', data: gatesData });
 
+      // Yellow circle background
       map.addLayer({
         id: 'gates-layer',
         type: 'circle',
         source: 'gates',
         paint: {
-          'circle-radius': 12,
+          'circle-radius': 14,
           'circle-color': '#fbbf24',
           'circle-stroke-width': 2,
           'circle-stroke-color': '#ffffff'
+        }
+      });
+
+      // "G" text label
+      map.addLayer({
+        id: 'gates-labels',
+        type: 'symbol',
+        source: 'gates',
+        layout: {
+          'text-field': 'G',
+          'text-size': 14,
+          'text-font': ['Open Sans Regular'],
+          'text-allow-overlap': true
+        },
+        paint: {
+          'text-color': '#000000'
         }
       });
 
@@ -400,10 +423,10 @@ export const mapHtml = `
         type: 'circle',
         source: 'staging',
         paint: {
-          'circle-radius': 16,
+          'circle-radius': 14,
           'circle-color': '#ff6600',
           'circle-stroke-width': 2,
-          'circle-stroke-color': '#ffffff'
+          'circle-stroke-color': '#000000'
         }
       });
 
@@ -417,11 +440,11 @@ export const mapHtml = `
             ['slice', ['get', 'description'], 13, 17]
           ],
           'text-size': 11,
-          'text-font': ['Open Sans Regular'],
+          'text-font': ['Open Sans Bold'],
           'text-allow-overlap': true
         },
         paint: {
-          'text-color': '#ffffff'
+          'text-color': '#000000'
         }
       });
 
@@ -441,10 +464,9 @@ export const mapHtml = `
       setVisibility('avy-paths-fill', showAvyPaths);
       setVisibility('avy-paths-line', showAvyPaths);
       setVisibility('gates-layer', showGates);
+      setVisibility('gates-labels', showGates);
       setVisibility('staging-layer', showStaging);
-      if (map.getLayer('staging-labels')) {
-        setVisibility('staging-labels', showStaging);
-      }
+      setVisibility('staging-labels', showStaging);
     }
 
     // Switch basemap
