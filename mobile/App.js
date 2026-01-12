@@ -231,31 +231,69 @@ export default function App() {
 
       switch (data.type) {
         case 'mapReady':
+          console.log('[mapReady] Received from WebView');
           setMapReady(true);
           setIsReady(true);
           // Tell WebView that TileBridge is ready
+          console.log('[mapReady] Sending tileBridgeReady');
           webViewRef.current?.postMessage(JSON.stringify({
             type: 'tileBridgeReady',
           }));
-          // Send GeoJSON data to map
-          webViewRef.current?.postMessage(JSON.stringify({
-            type: 'setGeoJSON',
-            avyPaths: avyPaths,
-            gates: gatesData,
-            staging: stagingData,
-          }));
+          // Send GeoJSON after a short delay to ensure WebView is ready
+          setTimeout(() => {
+            console.log('[mapReady] Sending GeoJSON now...');
+            const geoJsonPayload = JSON.stringify({
+              avyPaths: avyPaths,
+              gates: gatesData,
+              staging: stagingData,
+            });
+            console.log('[mapReady] GeoJSON size:', geoJsonPayload.length);
+
+            // Escape for safe injection (escape quotes and backslashes)
+            const safePayload = geoJsonPayload
+              .replace(/\\/g, '\\\\')
+              .replace(/'/g, "\\'")
+              .replace(/\n/g, '\\n');
+
+            webViewRef.current?.injectJavaScript(`
+              (function() {
+                window.log('GeoJSON received!');
+                try {
+                  var data = JSON.parse('${safePayload}');
+                  window.log('Parsed ' + (data.avyPaths ? data.avyPaths.features.length : 0) + ' avy paths');
+                  if (window.setGeoJSONData) {
+                    window.setGeoJSONData(data);
+                  }
+                } catch(e) {
+                  window.log('Parse error: ' + e.message.substring(0, 50));
+                }
+              })();
+              true;
+            `);
+          }, 1000);
           break;
 
         case 'getTile':
           // Handle tile request from WebView
+          console.log(`[getTile] Request: ${data.basemap}/${data.z}/${data.x}/${data.y}`);
           if (tileBridgeRef.current) {
             const { requestId, basemap, z, x, y } = data;
             const tileData = await tileBridgeRef.current.getTile(basemap, z, x, y);
-            webViewRef.current?.postMessage(JSON.stringify({
-              type: 'tileResponse',
-              requestId,
-              tileData, // base64 encoded or null
-            }));
+            console.log(`[getTile] Response for ${basemap}/${z}/${x}/${y}: ${tileData ? 'OK (' + tileData.length + ' chars)' : 'null'}`);
+            // Use injectJavaScript for large tile data (postMessage has size limits)
+            if (tileData) {
+              webViewRef.current?.injectJavaScript(`
+                window.handleTileData(${requestId}, "${tileData}");
+                true;
+              `);
+            } else {
+              webViewRef.current?.injectJavaScript(`
+                window.handleTileData(${requestId}, null);
+                true;
+              `);
+            }
+          } else {
+            console.log('[getTile] tileBridgeRef.current is null!');
           }
           break;
 

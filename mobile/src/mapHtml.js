@@ -30,6 +30,8 @@ export const mapHtml = `
       debugEl.innerHTML = debugLog.join('<br>');
       console.log(msg);
     }
+    // Make log available globally for injectJavaScript calls
+    window.log = log;
 
     // Current state
     let currentBasemap = 'topo';
@@ -81,22 +83,75 @@ export const mapHtml = `
       if (request) {
         delete pendingRequests[id];
         if (tileData) {
-          // Convert base64 to Uint8Array
-          const binary = atob(tileData);
-          const bytes = new Uint8Array(binary.length);
-          for (let i = 0; i < binary.length; i++) {
-            bytes[i] = binary.charCodeAt(i);
+          try {
+            // Convert base64 to Uint8Array
+            const binary = atob(tileData);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) {
+              bytes[i] = binary.charCodeAt(i);
+            }
+            log('Tile decoded: id=' + id + ', bytes=' + bytes.length);
+            request.resolve(bytes);
+          } catch (e) {
+            log('Tile decode ERROR: ' + e.message);
+            request.reject(e);
           }
-          request.resolve(bytes);
         } else {
           request.reject(new Error('Tile not found'));
         }
+      } else {
+        log('No pending request for id=' + id);
       }
     }
 
-    // Register custom protocol for tile loading
+    // Global function for receiving tile data via injectJavaScript (handles large payloads)
+    window.handleTileData = function(id, tileData) {
+      log('handleTileData: id=' + id + ', hasData=' + !!tileData);
+      handleTileResponse(id, tileData);
+    };
+
+    // Global function for receiving GeoJSON data via injectJavaScript
+    window.setGeoJSONData = function(data) {
+      const avyCount = data.avyPaths && data.avyPaths.features ? data.avyPaths.features.length : 0;
+      const gatesCount = data.gates && data.gates.features ? data.gates.features.length : 0;
+      const stagingCount = data.staging && data.staging.features ? data.staging.features.length : 0;
+      log('setGeoJSONData: avy=' + avyCount + ', gates=' + gatesCount + ', staging=' + stagingCount);
+
+      avyPathsData = data.avyPaths;
+      gatesData = data.gates;
+      stagingData = data.staging;
+
+      const addAllLayers = () => {
+        log('Adding GeoJSON layers...');
+        try {
+          addAvyPathsLayer();
+          addGatesLayer();
+          addStagingLayer();
+          // Check what layers exist
+          const layers = map.getStyle().layers.map(l => l.id);
+          log('Layers: ' + layers.join(', '));
+          const b = calculateBounds([avyPathsData, gatesData, stagingData]);
+          if (b[0][0] !== Infinity) {
+            map.fitBounds(b, { padding: 50 });
+            log('Bounds fitted');
+          }
+        } catch (e) {
+          log('Error adding layers: ' + e.message);
+        }
+      };
+
+      if (map && map.isStyleLoaded()) {
+        log('Style loaded, adding layers now');
+        addAllLayers();
+      } else if (map) {
+        log('Waiting for style.load...');
+        map.once('style.load', addAllLayers);
+      }
+    };
+
+    // Register custom protocol for tile loading (MapLibre v4+ uses Promise-based API)
     function registerTileProtocol() {
-      maplibregl.addProtocol('rntile', (params, callback) => {
+      maplibregl.addProtocol('rntile', async (params) => {
         // Parse URL: rntile://basemap/z/x/y
         const url = params.url.replace('rntile://', '');
         const parts = url.split('/');
@@ -105,15 +160,16 @@ export const mapHtml = `
         const x = parseInt(parts[2]);
         const y = parseInt(parts[3]);
 
-        requestTile(basemap, z, x, y)
-          .then(data => {
-            callback(null, data, null, null);
-          })
-          .catch(err => {
-            callback(err);
-          });
+        log('Tile req: ' + z + '/' + x + '/' + y);
 
-        return { cancel: () => {} };
+        try {
+          const data = await requestTile(basemap, z, x, y);
+          log('Tile OK: ' + z + '/' + x + '/' + y + ' (' + data.length + 'b)');
+          return { data: data };
+        } catch (err) {
+          log('Tile ERR: ' + z + '/' + x + '/' + y + ' - ' + err.message);
+          throw err;
+        }
       });
       log('Custom tile protocol registered');
     }
@@ -428,6 +484,9 @@ export const mapHtml = `
     function handleMessage(event) {
       try {
         const data = JSON.parse(event.data);
+        if (data.type !== 'tileResponse') {
+          log('Message received: ' + data.type);
+        }
 
         switch (data.type) {
           case 'tileBridgeReady':
@@ -455,30 +514,45 @@ export const mapHtml = `
 
           case 'tileResponse':
             // Handle tile data from React Native
+            log('tileResponse received: id=' + data.requestId + ', hasData=' + !!data.tileData + ', len=' + (data.tileData ? data.tileData.length : 0));
             handleTileResponse(data.requestId, data.tileData);
             break;
 
-          case 'setGeoJSON':
+          case 'setGeoJSON': {
+            const avyCount = data.avyPaths && data.avyPaths.features ? data.avyPaths.features.length : 0;
+            const gatesCount = data.gates && data.gates.features ? data.gates.features.length : 0;
+            const stagingCount = data.staging && data.staging.features ? data.staging.features.length : 0;
+            log('setGeoJSON: avy=' + avyCount + ', gates=' + gatesCount + ', staging=' + stagingCount);
             avyPathsData = data.avyPaths;
             gatesData = data.gates;
             stagingData = data.staging;
 
-            const addLayers = () => {
-              addAvyPathsLayer();
-              addGatesLayer();
-              addStagingLayer();
-              const bounds = calculateBounds([avyPathsData, gatesData, stagingData]);
-              if (bounds[0][0] !== Infinity) {
-                map.fitBounds(bounds, { padding: 50 });
+            const addLayersNow = () => {
+              log('Adding GeoJSON layers...');
+              try {
+                addAvyPathsLayer();
+                addGatesLayer();
+                addStagingLayer();
+                log('GeoJSON layers added!');
+                const b = calculateBounds([avyPathsData, gatesData, stagingData]);
+                if (b[0][0] !== Infinity) {
+                  map.fitBounds(b, { padding: 50 });
+                  log('Bounds fitted');
+                }
+              } catch (e) {
+                log('Error adding layers: ' + e.message);
               }
             };
 
             if (map && map.isStyleLoaded()) {
-              addLayers();
+              log('Style already loaded, adding layers now');
+              addLayersNow();
             } else if (map) {
-              map.once('style.load', addLayers);
+              log('Waiting for style.load...');
+              map.once('style.load', addLayersNow);
             }
             break;
+          }
 
           case 'toggleLayer':
             if (data.layer === 'avyPaths') showAvyPaths = data.visible;
@@ -496,6 +570,7 @@ export const mapHtml = `
             break;
         }
       } catch (e) {
+        log('handleMessage ERROR: ' + e.message);
         console.error('Error handling message:', e);
       }
     }

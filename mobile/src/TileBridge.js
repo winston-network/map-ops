@@ -1,6 +1,6 @@
 // TileBridge - Reads tiles from MBTiles (SQLite) and serves to WebView
 import * as SQLite from 'expo-sqlite';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { Asset } from 'expo-asset';
 
 class TileBridge {
@@ -36,7 +36,12 @@ class TileBridge {
 
         // Copy to SQLite directory if needed
         currentStep = `${name}: setting up paths`;
-        const dbDir = `${FileSystem.documentDirectory}SQLite/`;
+        const docDir = FileSystem.documentDirectory;
+        console.log(`FileSystem.documentDirectory: ${docDir}`);
+        if (!docDir) {
+          throw new Error('FileSystem.documentDirectory is undefined');
+        }
+        const dbDir = `${docDir}SQLite/`;
         const dbPath = `${dbDir}${name}.mbtiles`;
 
         console.log(`DB directory: ${dbDir}`);
