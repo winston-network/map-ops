@@ -58,7 +58,17 @@ class TileBridge {
         const info = await FileSystem.getInfoAsync(dbPath);
         console.log(`Existing file info:`, info);
 
-        if (!info.exists) {
+        // Get source asset size for comparison
+        currentStep = `${name}: checking source asset size`;
+        const sourceInfo = await FileSystem.getInfoAsync(asset.localUri, { size: true });
+        const sourceSize = sourceInfo.size || 0;
+
+        if (!info.exists || info.size !== sourceSize) {
+          if (info.exists) {
+            currentStep = `${name}: removing stale cached file`;
+            console.log(`${name} size changed (${info.size} -> ${sourceSize}), replacing`);
+            await FileSystem.deleteAsync(dbPath, { idempotent: true });
+          }
           currentStep = `${name}: copying file to SQLite dir`;
           console.log(`Copying ${name} from ${asset.localUri} to ${dbPath}`);
           await FileSystem.copyAsync({
@@ -67,7 +77,7 @@ class TileBridge {
           });
           console.log(`Copy complete for ${name}`);
         } else {
-          console.log(`${name} already exists at ${dbPath}`);
+          console.log(`${name} already exists at ${dbPath} (size matches: ${info.size})`);
         }
 
         // Open database

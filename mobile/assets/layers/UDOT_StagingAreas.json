@@ -1,0 +1,410 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "geometry": {
+        "coordinates": [
+          -111.66153,
+          40.64953
+        ],
+        "type": "Point"
+      },
+      "id": "59f62144-e7f8-4bdc-9eb5-c021418cd9a0",
+      "type": "Feature",
+      "properties": {
+        "-updated-by": "R6D7KA",
+        "creator": "R6D7KA",
+        "-created-on": 1765801258896,
+        "-updated-on": 1765801344406,
+        "description": "BCC Staging Area 10.1",
+        "title": "",
+        "marker-size": "1",
+        "marker-rotation": null,
+        "marker-symbol": "t:10",
+        "marker-color": "FFAA00",
+        "class": "Marker",
+        "updated": 1765801344406,
+        "-created-by": "R6D7KA",
+        "mile_marker": "10.1"
+      }
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          -111.75057,
+          40.62199
+        ],
+        "type": "Point"
+      },
+      "id": "52185eed-62c2-42fe-b0c9-d9a406514320",
+      "type": "Feature",
+      "properties": {
+        "-updated-by": "R6D7KA",
+        "creator": "R6D7KA",
+        "-created-on": 1765801976514,
+        "-updated-on": 1765801976514,
+        "description": "BCC Staging Area 4.2",
+        "title": "",
+        "marker-size": "1",
+        "marker-rotation": null,
+        "marker-symbol": "t:4.",
+        "marker-color": "FFAA00",
+        "class": "Marker",
+        "updated": 1765801976514,
+        "-created-by": "R6D7KA",
+        "mile_marker": "4.2"
+      }
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          -111.71155,
+          40.63421
+        ],
+        "type": "Point"
+      },
+      "id": "b093d715-d1a0-45f3-884f-a99a57592207",
+      "type": "Feature",
+      "properties": {
+        "-updated-by": "R6D7KA",
+        "creator": "R6D7KA",
+        "-created-on": 1765801892223,
+        "-updated-on": 1765801991115,
+        "description": "BCC Staging Area 7.0",
+        "title": "",
+        "marker-size": "1",
+        "marker-rotation": null,
+        "marker-symbol": "t:7.",
+        "marker-color": "FFAA00",
+        "class": "Marker",
+        "updated": 1765801991115,
+        "-created-by": "R6D7KA",
+        "mile_marker": "7.0"
+      }
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          -111.69962,
+          40.63639
+        ],
+        "type": "Point"
+      },
+      "id": "619d0929-6bd9-4332-aea9-22c0106d7974",
+      "type": "Feature",
+      "properties": {
+        "-updated-by": "R6D7KA",
+        "creator": "R6D7KA",
+        "-created-on": 1765801825171,
+        "-updated-on": 1765802003835,
+        "description": "BCC Staging Area 7.8",
+        "title": "",
+        "marker-size": "1",
+        "marker-rotation": null,
+        "marker-symbol": "t:7.",
+        "marker-color": "FFAA00",
+        "class": "Marker",
+        "updated": 1765802003835,
+        "-created-by": "R6D7KA",
+        "mile_marker": "7.8"
+      }
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          -111.68574,
+          40.64221
+        ],
+        "type": "Point"
+      },
+      "id": "d117902f-415e-44a3-9ad4-b04d297ce06c",
+      "type": "Feature",
+      "properties": {
+        "-updated-by": "R6D7KA",
+        "creator": "R6D7KA",
+        "-created-on": 1765801745507,
+        "-updated-on": 1765802017470,
+        "description": "BCC Staging Area 8.4",
+        "title": "",
+        "marker-size": "1",
+        "marker-rotation": null,
+        "marker-symbol": "t:8.",
+        "marker-color": "FFAA00",
+        "class": "Marker",
+        "updated": 1765802017470,
+        "-created-by": "R6D7KA",
+        "mile_marker": "8.4"
+      }
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          -111.6754,
+          40.64356
+        ],
+        "type": "Point"
+      },
+      "id": "37ea8cf9-3da2-4dcc-819e-e63c8d07c18d",
+      "type": "Feature",
+      "properties": {
+        "-updated-by": "R6D7KA",
+        "creator": "R6D7KA",
+        "-created-on": 1765801675768,
+        "-updated-on": 1765802025385,
+        "description": "BCC Staging Area 9.1",
+        "title": "",
+        "marker-size": "1",
+        "marker-rotation": null,
+        "marker-symbol": "t:9.",
+        "marker-color": "FFAA00",
+        "class": "Marker",
+        "updated": 1765802025385,
+        "-created-by": "R6D7KA",
+        "mile_marker": "9.1"
+      }
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          -111.66882,
+          40.64539
+        ],
+        "type": "Point"
+      },
+      "id": "21f8e57a-3b61-47a6-926e-9d1653920259",
+      "type": "Feature",
+      "properties": {
+        "-updated-by": "R6D7KA",
+        "creator": "R6D7KA",
+        "-created-on": 1765801513505,
+        "-updated-on": 1765802032305,
+        "description": "BCC Staging Area 9.5",
+        "title": "",
+        "marker-size": "1",
+        "marker-rotation": null,
+        "marker-symbol": "t:9.",
+        "marker-color": "FFAA00",
+        "class": "Marker",
+        "updated": 1765802032305,
+        "-created-by": "R6D7KA",
+        "mile_marker": "9.5"
+      }
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          -111.70909,
+          40.57067
+        ],
+        "type": "Point"
+      },
+      "id": "b24f30a7-7676-4619-b8a2-c840456c0ad1",
+      "type": "Feature",
+      "properties": {
+        "-updated-by": "R6D7KA",
+        "creator": "R6D7KA",
+        "-created-on": 1770655556592,
+        "-updated-on": 1770655579063,
+        "description": "LCC Staging Area 7.6",
+        "title": "",
+        "marker-size": "1",
+        "marker-rotation": null,
+        "marker-symbol": "t:7.",
+        "marker-color": "FFAA00",
+        "class": "Marker",
+        "updated": 1770655579063,
+        "-created-by": "R6D7KA",
+        "mile_marker": "7.6"
+      }
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          -111.7114523,
+          40.5711348
+        ],
+        "type": "Point"
+      },
+      "id": "70287722-d1f8-477d-8a08-2a199b9c9312",
+      "type": "Feature",
+      "properties": {
+        "-updated-by": "R6D7KA",
+        "creator": "R6D7KA",
+        "-created-on": 1770655639432,
+        "-updated-on": 1770655639432,
+        "description": "LCC Staging Area 7.5",
+        "title": "",
+        "marker-size": "1",
+        "marker-rotation": null,
+        "marker-symbol": "t:7.",
+        "marker-color": "FFAA00",
+        "class": "Marker",
+        "updated": 1770655639432,
+        "-created-by": "R6D7KA",
+        "mile_marker": "7.5"
+      }
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          -111.7001626,
+          40.5735756
+        ],
+        "type": "Point"
+      },
+      "id": "a2034a47-2e75-4c13-9377-e694f932d7ef",
+      "type": "Feature",
+      "properties": {
+        "-updated-by": "R6D7KA",
+        "creator": "R6D7KA",
+        "-created-on": 1770655712145,
+        "-updated-on": 1770655712145,
+        "description": "LCC Staging Area 8.2",
+        "title": "",
+        "marker-size": "1",
+        "marker-rotation": null,
+        "marker-symbol": "t:8.",
+        "marker-color": "FFAA00",
+        "class": "Marker",
+        "updated": 1770655712145,
+        "-created-by": "R6D7KA",
+        "mile_marker": "8.2"
+      }
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          -111.6824245,
+          40.5762348
+        ],
+        "type": "Point"
+      },
+      "id": "fedcaf5d-b696-4be7-aa34-a113d8b1e940",
+      "type": "Feature",
+      "properties": {
+        "-updated-by": "R6D7KA",
+        "creator": "R6D7KA",
+        "-created-on": 1770655780506,
+        "-updated-on": 1770655780506,
+        "description": "LCC Staging Area 9.2",
+        "title": "",
+        "marker-size": "1",
+        "marker-rotation": null,
+        "marker-symbol": "t:9.",
+        "marker-color": "FFAA00",
+        "class": "Marker",
+        "updated": 1770655780506,
+        "-created-by": "R6D7KA",
+        "mile_marker": "9.2"
+      }
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          -111.6854262,
+          40.5753547
+        ],
+        "type": "Point"
+      },
+      "id": "a025ecd6-67c5-4775-b9ff-108b0b0904ec",
+      "type": "Feature",
+      "properties": {
+        "-updated-by": "R6D7KA",
+        "creator": "R6D7KA",
+        "-created-on": 1770655836253,
+        "-updated-on": 1770655836253,
+        "description": "LCC Staging Area 8.9",
+        "title": "",
+        "marker-size": "1",
+        "marker-rotation": null,
+        "marker-symbol": "t:8.",
+        "marker-color": "FFAA00",
+        "class": "Marker",
+        "updated": 1770655836253,
+        "-created-by": "R6D7KA",
+        "mile_marker": "8.9"
+      }
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          -111.688089,
+          40.5753498
+        ],
+        "type": "Point"
+      },
+      "id": "dd86ea6d-824b-4740-b910-0f51a1bf1357",
+      "type": "Feature",
+      "properties": {
+        "-updated-by": "R6D7KA",
+        "creator": "R6D7KA",
+        "-created-on": 1770655899045,
+        "-updated-on": 1770655899045,
+        "description": "LCC Staging Area 8.8",
+        "title": "",
+        "marker-size": "1",
+        "marker-rotation": null,
+        "marker-symbol": "t:8.",
+        "marker-color": "FFAA00",
+        "class": "Marker",
+        "updated": 1770655899045,
+        "-created-by": "R6D7KA",
+        "mile_marker": "8.8"
+      }
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          -111.6929754,
+          40.5744338
+        ],
+        "type": "Point"
+      },
+      "id": "8b0a8fa4-df28-4e05-81c0-e2db9a5bf650",
+      "type": "Feature",
+      "properties": {
+        "-updated-by": "R6D7KA",
+        "creator": "R6D7KA",
+        "-created-on": 1770655950146,
+        "-updated-on": 1770655950148,
+        "description": "LCC Staging Area 8.6",
+        "title": "",
+        "marker-size": "1",
+        "marker-rotation": null,
+        "marker-symbol": "t:8.",
+        "marker-color": "FFAA00",
+        "class": "Marker",
+        "updated": 1770655950148,
+        "-created-by": "R6D7KA",
+        "mile_marker": "8.6"
+      }
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          -111.7032555,
+          40.5708458
+        ],
+        "type": "Point"
+      },
+      "id": "2a4f26b4-24c9-410a-aac5-1ad93f8e43ad",
+      "type": "Feature",
+      "properties": {
+        "-updated-by": "R6D7KA",
+        "creator": "R6D7KA",
+        "-created-on": 1770656016554,
+        "-updated-on": 1770656016554,
+        "description": "LCC Staging Area 8.0",
+        "title": "",
+        "marker-size": "1",
+        "marker-rotation": null,
+        "marker-symbol": "t:8.",
+        "marker-color": "FFAA00",
+        "class": "Marker",
+        "updated": 1770656016554,
+        "-created-by": "R6D7KA",
+        "mile_marker": "8.0"
+      }
+    }
+  ]
+}

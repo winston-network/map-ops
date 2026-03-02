@@ -1,27 +1,19 @@
 {
   "basemaps": [
     {
-      "id": "topo",
-      "name": "Shaded Topo",
-      "file": "CC_shaded_topo.pmtiles",
+      "id": "slc-provo-shaded-topo",
+      "name": "SLC Provo Shaded Topo",
+      "file": "Topo_SLC_Provo_10_15_JPG.pmtiles",
       "minzoom": 10,
-      "maxzoom": 16,
+      "maxzoom": 15,
       "default": true
     },
     {
-      "id": "satellite",
-      "name": "CC Satellite",
-      "file": "CC_satellite_12_14.pmtiles",
-      "minzoom": 12,
-      "maxzoom": 14,
-      "default": false
-    },
-    {
-      "id": "bo-satellite",
-      "name": "Bo Satellite",
-      "file": "Bo_satellite_12_14.pmtiles",
-      "minzoom": 12,
-      "maxzoom": 14,
+      "id": "slc-provo-satellite",
+      "name": "SLC Provo Satellite",
+      "file": "Satellite_SLC_Provo_10_15_JPG.pmtiles",
+      "minzoom": 10,
+      "maxzoom": 15,
       "default": false
     }
   ]

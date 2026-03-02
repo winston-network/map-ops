@@ -4,8 +4,8 @@
         "Avy_Paths.geojson",
         "Closure_Gates.geojson",
         "Pad_Locations.geojson",
-        "BCC_AvyPaths.geojson",
-        "BCC_Gates.geojson",
-        "BCC_Staging.geojson"
+        "relevant_polygons.geojson",
+        "UDOT_Gates.geojson",
+        "UDOT_StagingAreas.geojson"
     ]
 }

@@ -3,14 +3,14 @@
  * Basemap Conversion Script
  *
  * Converts MBTiles files from basemap/source/ to PMTiles format
- * and copies them to both web and mobile app locations.
+ * and copies originals to mobile app location.
  *
  * Usage: npm run convert-basemaps
  *
  * Place your .mbtiles files in: basemap/source/
  * Output goes to:
- *   - basemap/*.pmtiles (for web localhost)
- *   - mobile/assets/basemap/*.pmtiles (for mobile app)
+ *   - basemap/*.pmtiles (for web - uses PMTiles via HTTP range requests)
+ *   - mobile/assets/basemap/*.mbtiles (for mobile - uses MBTiles via SQLite)
  */
 
 const { execSync } = require('child_process');
@@ -22,6 +22,15 @@ const SOURCE_DIR = path.join(ROOT_DIR, 'basemap', 'source');
 const WEB_OUTPUT_DIR = path.join(ROOT_DIR, 'basemap');
 const MOBILE_OUTPUT_DIR = path.join(ROOT_DIR, 'mobile', 'assets', 'basemap');
 const PMTILES_BIN = path.join(ROOT_DIR, 'tools', 'pmtiles.exe');
+
+// Convert WSL path to Windows path for the .exe binary
+function toWinPath(p) {
+  try {
+    return execSync(`wslpath -w "${p}"`, { encoding: 'utf8' }).trim();
+  } catch {
+    return p; // Fall back to original path if not in WSL
+  }
+}
 
 // Ensure output directories exist
 [WEB_OUTPUT_DIR, MOBILE_OUTPUT_DIR].forEach(dir => {
@@ -47,7 +56,7 @@ mbtilesFiles.forEach(file => {
   const inputPath = path.join(SOURCE_DIR, file);
   const pmtilesName = `${baseName}.pmtiles`;
   const webOutput = path.join(WEB_OUTPUT_DIR, pmtilesName);
-  const mobileOutput = path.join(MOBILE_OUTPUT_DIR, pmtilesName);
+  const mobileOutput = path.join(MOBILE_OUTPUT_DIR, file);
 
   console.log(`Converting: ${file}`);
 
@@ -58,7 +67,7 @@ mbtilesFiles.forEach(file => {
   try {
     // Convert to PMTiles (output to web directory first)
     console.log(`  Converting to PMTiles...`);
-    execSync(`"${PMTILES_BIN}" convert "${inputPath}" "${webOutput}"`, { stdio: 'inherit' });
+    execSync(`"${PMTILES_BIN}" convert "${toWinPath(inputPath)}" "${toWinPath(webOutput)}"`, { stdio: 'inherit' });
 
     // Get output file size
     const outputSize = (fs.statSync(webOutput).size / 1024 / 1024).toFixed(2);
@@ -66,13 +75,13 @@ mbtilesFiles.forEach(file => {
 
     // Show tile info
     console.log(`  Tile info:`);
-    execSync(`"${PMTILES_BIN}" show "${webOutput}"`, { stdio: 'inherit' });
+    execSync(`"${PMTILES_BIN}" show "${toWinPath(webOutput)}"`, { stdio: 'inherit' });
 
-    // Copy to mobile directory
-    console.log(`  Copying to mobile assets...`);
-    fs.copyFileSync(webOutput, mobileOutput);
+    // Copy MBTiles source to mobile directory (mobile uses SQLite, not PMTiles)
+    console.log(`  Copying MBTiles to mobile assets...`);
+    fs.copyFileSync(inputPath, mobileOutput);
 
-    console.log(`  ✓ Done: ${pmtilesName}\n`);
+    console.log(`  ✓ Done: ${pmtilesName} (web) + ${file} (mobile)\n`);
   } catch (error) {
     console.error(`  ✗ Error converting ${file}:`, error.message);
   }
