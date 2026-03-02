@@ -433,7 +433,7 @@ export default function App() {
           onPress={() => setShowAvyPaths(!showAvyPaths)}
         >
           <Text style={styles.toggleText}>Paths</Text>
-          <View style={[styles.toggleRect, { backgroundColor: '#93c5fd', borderColor: '#1e3a5f', borderWidth: 1 }]} />
+          <View style={[styles.toggleRect, { backgroundColor: '#f472b6' }]} />
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -686,10 +686,11 @@ const styles = StyleSheet.create({
     textShadowRadius: 10,
   },
   subtitle: {
-    fontSize: 10,
-    color: '#ef4444',
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#f97316',
     marginTop: 1,
-    textShadowColor: 'rgba(239, 68, 68, 0.6)',
+    textShadowColor: 'rgba(249, 115, 22, 0.6)',
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 6,
   },

@@ -377,7 +377,7 @@ export const mapHtml = `
           type: 'fill',
           source: 'avy-paths',
           paint: {
-            'fill-color': '#93c5fd',
+            'fill-color': '#f472b6',
             'fill-opacity': 0.3
           }
         });
@@ -387,7 +387,7 @@ export const mapHtml = `
           type: 'line',
           source: 'avy-paths',
           paint: {
-            'line-color': '#1e3a5f',
+            'line-color': '#f472b6',
             'line-width': 2,
             'line-opacity': 0.8
           }
