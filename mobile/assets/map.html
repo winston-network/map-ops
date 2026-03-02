@@ -207,7 +207,7 @@
         map.addSource('gates', { type: 'geojson', data: gatesData });
 
         // Load gate icon
-        map.loadImage('https://raw.githubusercontent.com/winston-network/map-ops/main/images/icons/BCC_Gates.png', (error, image) => {
+        map.loadImage('https://raw.githubusercontent.com/winston-network/map-ops/main/images/icons/UDOT_Gates.png', (error, image) => {
           if (error) {
             console.error('Error loading gate icon:', error);
             // Fallback to circle
@@ -266,7 +266,7 @@
           type: 'symbol',
           source: 'staging',
           layout: {
-            'text-field': ['get', 'description'],
+            'text-field': ['get', 'mile_marker'],
             'text-size': 10,
             'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
             'text-allow-overlap': true

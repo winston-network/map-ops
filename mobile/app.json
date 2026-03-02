@@ -2,20 +2,20 @@
   "expo": {
     "name": "MAP-OPS",
     "slug": "mobile",
-    "version": "2.10.0",
+    "version": "2.14.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/icon_new.png",
     "userInterfaceStyle": "dark",
     "newArchEnabled": false,
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/splash-icon_new.png",
       "resizeMode": "contain",
       "backgroundColor": "#1a1a2e"
     },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.winstonnetwork.mapops",
-      "buildNumber": "16",
+      "buildNumber": "20",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSLocationWhenInUseUsageDescription": "MAP-OPS needs your location to show your position on the map.",
@@ -38,12 +38,12 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/adaptive-icon_new.png",
         "backgroundColor": "#1a1a2e"
       },
       "edgeToEdgeEnabled": true,
       "package": "com.winstonnetwork.mapops",
-      "versionCode": 8,
+      "versionCode": 12,
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",

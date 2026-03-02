@@ -82,9 +82,9 @@ const App = (function() {
             'Avy_Paths': { color: '#ef4444', name: 'LCC Avalanche Paths' },      // Red
             'Closure_Gates': { color: '#f59e0b', name: 'LCC Closure Gates' },    // Orange/Yellow
             'Pad_Locations': { color: '#22c55e', name: 'LCC Gun Pads' },         // Green
-            'BCC_AvyPaths': { color: '#f472b6', name: 'BCC Avalanche Paths' },   // Pink
-            'BCC_Gates': { color: '#f59e0b', name: 'BCC Gates' },                // Orange (match LCC gates)
-            'BCC_Staging': { color: '#a855f7', name: 'BCC Staging Areas' }       // Purple
+            'relevant_polygons': { color: '#f472b6', name: 'Avy_Paths' },           // Pink
+            'UDOT_Gates': { color: '#f59e0b', name: 'Gates' },                   // Orange (match LCC gates)
+            'UDOT_StagingAreas': { color: '#a855f7', name: 'Staging' }           // Purple
         };
 
         // Load icons config
@@ -487,13 +487,13 @@ const App = (function() {
         const properties = feature.properties || {};
         const layerId = layer?.id || '';
 
-        // For BCC layers, show simplified popup with just description
-        const isBCCLayer = layerId.includes('BCC');
+        // For UDOT layers, show simplified popup with just description
+        const isUDOTLayer = layerId.includes('UDOT') || layerId.includes('relevant_polygons');
 
         let title, html;
 
-        if (isBCCLayer) {
-            // Use description as the main content for BCC layers
+        if (isUDOTLayer) {
+            // Use description as the main content for UDOT layers
             const description = properties.description || properties.name || 'Unknown';
             title = layer?.name || 'Feature';
             html = `<div class="property-value" style="font-size: 0.9rem;">${description}</div>`;

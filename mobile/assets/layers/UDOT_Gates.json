@@ -1,0 +1,167 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "geometry": {
+        "coordinates": [
+          -111.65054,
+          40.65086
+        ],
+        "type": "Point"
+      },
+      "id": "3d56bea7-0b1c-41c8-bca2-2fcd6e9ae452",
+      "type": "Feature",
+      "properties": {
+        "-updated-by": "R6D7KA",
+        "creator": "R6D7KA",
+        "-created-on": 1766325075465,
+        "-updated-on": 1766325075465,
+        "description": "Upper Gate",
+        "title": "",
+        "marker-size": "1.5",
+        "marker-rotation": null,
+        "marker-symbol": "flag-1",
+        "marker-color": "FFAA00",
+        "class": "Marker",
+        "updated": 1766325075465,
+        "-created-by": "R6D7KA"
+      }
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          -111.77793,
+          40.61876
+        ],
+        "type": "Point"
+      },
+      "id": "9bff6770-20cd-421c-aacf-d5d45bb48ff2",
+      "type": "Feature",
+      "properties": {
+        "-updated-by": "R6D7KA",
+        "creator": "R6D7KA",
+        "-created-on": 1766325907693,
+        "-updated-on": 1766325907693,
+        "description": "Lower Gate",
+        "title": "",
+        "marker-size": "1.5",
+        "marker-rotation": null,
+        "marker-symbol": "flag-1",
+        "marker-color": "FFAA00",
+        "class": "Marker",
+        "updated": 1766325907693,
+        "-created-by": "R6D7KA"
+      }
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          -111.656676,
+          40.583381
+        ],
+        "type": "Point"
+      },
+      "id": "lcc-superior-gate-001",
+      "type": "Feature",
+      "properties": {
+        "creator": "R6D7KA",
+        "description": "LCC Lower Mainline",
+        "title": "",
+        "marker-size": "1.5",
+        "marker-rotation": null,
+        "marker-symbol": "flag-1",
+        "marker-color": "FFAA00",
+        "class": "Marker",
+        "-created-by": "R6D7KA"
+      }
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          -111.645082,
+          40.588949
+        ],
+        "type": "Point"
+      },
+      "id": "lcc-upper-peruvian-001",
+      "type": "Feature",
+      "properties": {
+        "creator": "R6D7KA",
+        "description": "LCC Upper Mainline",
+        "title": "",
+        "marker-size": "1.5",
+        "marker-rotation": null,
+        "marker-symbol": "flag-1",
+        "marker-color": "FFAA00",
+        "class": "Marker",
+        "-created-by": "R6D7KA"
+      }
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          -111.650464,
+          40.587855
+        ],
+        "type": "Point"
+      },
+      "id": "lcc-hellgate-001",
+      "type": "Feature",
+      "properties": {
+        "creator": "R6D7KA",
+        "description": "LCC Hellgate",
+        "title": "",
+        "marker-size": "1.5",
+        "marker-rotation": null,
+        "marker-symbol": "flag-1",
+        "marker-color": "FFAA00",
+        "class": "Marker",
+        "-created-by": "R6D7KA"
+      }
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          -111.751998,
+          40.571482
+        ],
+        "type": "Point"
+      },
+      "id": "lcc-gate-a-001",
+      "type": "Feature",
+      "properties": {
+        "creator": "R6D7KA",
+        "description": "LCC Gate A",
+        "title": "",
+        "marker-size": "1.5",
+        "marker-rotation": null,
+        "marker-symbol": "flag-1",
+        "marker-color": "FFAA00",
+        "class": "Marker",
+        "-created-by": "R6D7KA"
+      }
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          -111.726908,
+          40.572183
+        ],
+        "type": "Point"
+      },
+      "id": "lcc-lisa-falls-001",
+      "type": "Feature",
+      "properties": {
+        "creator": "R6D7KA",
+        "description": "LCC Lisa Falls",
+        "title": "",
+        "marker-size": "1.5",
+        "marker-rotation": null,
+        "marker-symbol": "flag-1",
+        "marker-color": "FFAA00",
+        "class": "Marker",
+        "-created-by": "R6D7KA"
+      }
+    }
+  ]
+}

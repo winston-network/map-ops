@@ -2,14 +2,14 @@
     "defaultSize": 32,
     "icons": [
         {
-            "layer": "BCC_Staging",
-            "file": "BCC_Staging.png",
+            "layer": "UDOT_StagingAreas",
+            "file": "UDOT_StagingAreas.png",
             "size": 2,
             "attribution": "Gate icons created by Backwoods - Flaticon"
         },
         {
-            "layer": "BCC_Gates",
-            "file": "BCC_Gates.png",
+            "layer": "UDOT_Gates",
+            "file": "UDOT_Gates.png",
             "size": 3,
             "attribution": "Gate icons created by Backwoods - Flaticon"
         }

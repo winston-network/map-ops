@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, View, Text, TouchableOpacity, Image, Animated, Dimensions, Platform } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Image, Animated, Dimensions, Platform, Linking } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useState, useEffect, useRef } from 'react';
 import * as Location from 'expo-location';
@@ -124,17 +124,17 @@ function SnowFillText({ progress, text }) {
 }
 
 // Import GeoJSON data
-import avyPaths from './assets/layers/BCC_AvyPaths.json';
-import gatesData from './assets/layers/BCC_Gates.json';
-import stagingData from './assets/layers/BCC_Staging.json';
+import avyPaths from './assets/layers/relevant_polygons.json';
+import gatesData from './assets/layers/UDOT_Gates.json';
+import stagingData from './assets/layers/UDOT_StagingAreas.json';
 
 // Import app config for version
 import appConfig from './app.json';
 
 // Bundled MBTiles basemaps
 const BUNDLED_BASEMAPS = {
-  topo: require('./assets/basemap/CC_shaded_topo.mbtiles'),
-  satellite: require('./assets/basemap/CC_satellite_12_14.mbtiles'),
+  topo: require('./assets/basemap/Topo_SLC_Provo_10_15_JPG.mbtiles'),
+  satellite: require('./assets/basemap/Satellite_SLC_Provo_10_15_JPG.mbtiles'),
 };
 
 export default function App() {
@@ -153,6 +153,10 @@ export default function App() {
 
   // Selected feature for popup
   const [selectedFeature, setSelectedFeature] = useState(null);
+
+  // Avy report and feedback popups
+  const [showAvyReport, setShowAvyReport] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
 
   // Refs
   const webViewRef = useRef(null);
@@ -174,7 +178,7 @@ export default function App() {
   useEffect(() => {
     const initTileBridge = async () => {
       try {
-        setLoadingStatus('Loading basemap databases...');
+        setLoadingStatus('Loading basemaps...');
 
         // Create TileBridge instance
         tileBridgeRef.current = new TileBridge();
@@ -306,6 +310,8 @@ export default function App() {
           setSelectedFeature({
             type: data.featureType,
             description: data.description,
+            tapX: data.tapX,
+            tapY: data.tapY,
           });
           break;
       }
@@ -385,7 +391,7 @@ export default function App() {
       <View style={styles.header}>
         <View style={styles.logoGlow}>
           <Image
-            source={require('./assets/icons/snowflake.png')}
+            source={require('./assets/icon_new.png')}
             style={styles.logo}
           />
         </View>
@@ -393,7 +399,12 @@ export default function App() {
           <Text style={styles.title}>MAP-OPS</Text>
           <View style={styles.subtitleRow}>
             <Text style={styles.subtitle}>Mountain Avalanche Protection Operations</Text>
-            <Text style={styles.version}>v{appConfig.expo.version}</Text>
+            <View style={styles.versionRow}>
+              <Text style={styles.version}>v{appConfig.expo.version}</Text>
+              <TouchableOpacity onPress={() => setShowFeedback(true)} style={styles.infoBtn}>
+                <Text style={styles.infoBtnText}>i</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </View>
@@ -422,7 +433,7 @@ export default function App() {
           onPress={() => setShowAvyPaths(!showAvyPaths)}
         >
           <Text style={styles.toggleText}>Paths</Text>
-          <View style={[styles.toggleRect, { backgroundColor: '#f472b6' }]} />
+          <View style={[styles.toggleRect, { backgroundColor: '#93c5fd', borderColor: '#1e3a5f', borderWidth: 1 }]} />
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -438,7 +449,14 @@ export default function App() {
           onPress={() => setShowGates(!showGates)}
         >
           <Text style={styles.toggleText}>Gates</Text>
-          <Image source={require('./assets/icons/BCC_Gates.png')} style={styles.toggleIcon} />
+          <Image source={require('./assets/icons/New_Gates.png')} style={styles.toggleIcon} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.toggleBtn, styles.toggleBtnActive]}
+          onPress={() => setShowAvyReport(true)}
+        >
+          <Text style={styles.avyIcon}>Avy!</Text>
         </TouchableOpacity>
       </View>
 
@@ -499,9 +517,63 @@ export default function App() {
           activeOpacity={1}
           onPress={() => setSelectedFeature(null)}
         >
+          {selectedFeature.tapX != null ? (
+            <View style={[styles.featurePopup, {
+              left: Math.min(Math.max(selectedFeature.tapX - 80, 10), SCREEN_WIDTH - 180),
+              top: Math.min(Math.max(selectedFeature.tapY + 90, 10), SCREEN_HEIGHT - 120),
+            }]}>
+              <Text style={styles.popupType}>{selectedFeature.type}</Text>
+              <Text style={styles.popupDescription}>{selectedFeature.description}</Text>
+            </View>
+          ) : (
+            <View style={styles.popup}>
+              <Text style={styles.popupType}>{selectedFeature.type}</Text>
+              <Text style={styles.popupDescription}>{selectedFeature.description}</Text>
+              <Text style={styles.popupHint}>Tap anywhere to close</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      )}
+
+      {/* Avy Report Popup */}
+      {showAvyReport && (
+        <TouchableOpacity
+          style={styles.popupOverlay}
+          activeOpacity={1}
+          onPress={() => setShowAvyReport(false)}
+        >
           <View style={styles.popup}>
-            <Text style={styles.popupType}>{selectedFeature.type}</Text>
-            <Text style={styles.popupDescription}>{selectedFeature.description}</Text>
+            <Text style={styles.avyReportHeader}>Please report avalanches to UDOT personnel at:</Text>
+            <Text style={styles.avyReportLabel}>BCC:</Text>
+            <Text style={styles.avyReportContact}>JB Keller - 859-912-2150</Text>
+            <Text style={styles.avyReportLabel}>LCC:</Text>
+            <Text style={styles.avyReportContact}>Laurie Delaney - 970-266-0107</Text>
+            <Text style={styles.avyReportLabel}>Provo:</Text>
+            <Text style={styles.avyReportContact}>Chris Covington - 801-910-2466</Text>
+            <Text style={styles.popupHint}>Tap anywhere to close</Text>
+          </View>
+        </TouchableOpacity>
+      )}
+
+      {/* Feedback Popup */}
+      {showFeedback && (
+        <TouchableOpacity
+          style={styles.popupOverlay}
+          activeOpacity={1}
+          onPress={() => setShowFeedback(false)}
+        >
+          <View style={styles.popup}>
+            <Text style={styles.popupType}>Feedback</Text>
+            <Text style={styles.feedbackSubtext}>Help us improve MAP-OPS</Text>
+            <TouchableOpacity
+              style={styles.feedbackSubmit}
+              onPress={() => {
+                Linking.openURL('https://docs.google.com/forms/d/e/1FAIpQLSeKE5X8P6A78RJDDFfW4IgGnBzokHSqCzpL89yRq0yB4nQNvQ/viewform');
+                setShowFeedback(false);
+              }}
+            >
+              <Text style={styles.feedbackSubmitText}>Submit Feedback</Text>
+            </TouchableOpacity>
             <Text style={styles.popupHint}>Tap anywhere to close</Text>
           </View>
         </TouchableOpacity>
@@ -510,12 +582,6 @@ export default function App() {
       {/* Footer */}
       <View style={styles.footer}>
         <Text style={styles.disclaimerText}>For conceptual testing only. Not for operational use.</Text>
-        <View style={styles.logoRow}>
-          <Image source={require('./assets/logos/usfs.png')} style={styles.footerLogo} />
-          <Image source={require('./assets/logos/udot.jpg')} style={styles.footerLogo} />
-          <Image source={require('./assets/logos/alta.png')} style={styles.footerLogo} />
-          <Image source={require('./assets/logos/brighton.png')} style={styles.footerLogo} />
-        </View>
       </View>
     </View>
   );
@@ -632,6 +698,26 @@ const styles = StyleSheet.create({
     color: '#888888',
     marginTop: 1,
   },
+  versionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  infoBtn: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#888888',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  infoBtnText: {
+    color: '#888888',
+    fontSize: 10,
+    fontWeight: '700',
+    fontStyle: 'italic',
+  },
   toggleBar: {
     flexDirection: 'row',
     backgroundColor: '#252542',
@@ -695,6 +781,11 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
   },
+  avyIcon: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#ef4444',
+  },
   map: {
     flex: 1,
     backgroundColor: '#1a1a2e',
@@ -713,7 +804,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#1a1a2e',
     borderRadius: 12,
     padding: 16,
-    marginHorizontal: 40,
+    marginHorizontal: 12,
     borderWidth: 1,
     borderColor: '#7ec8ff',
     shadowColor: '#7ec8ff',
@@ -721,6 +812,21 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.5,
     shadowRadius: 10,
     elevation: 10,
+  },
+  featurePopup: {
+    position: 'absolute',
+    backgroundColor: '#1a1a2e',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: '#7ec8ff',
+    shadowColor: '#7ec8ff',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 6,
+    elevation: 10,
+    maxWidth: 200,
   },
   popupType: {
     color: '#7ec8ff',
@@ -732,7 +838,7 @@ const styles = StyleSheet.create({
   },
   popupDescription: {
     color: '#ffffff',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '500',
     marginBottom: 8,
   },
@@ -741,6 +847,44 @@ const styles = StyleSheet.create({
     fontSize: 10,
     textAlign: 'center',
     marginTop: 4,
+  },
+  avyReportHeader: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '500',
+    marginBottom: 8,
+  },
+  avyReportLabel: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '700',
+    textDecorationLine: 'underline',
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  avyReportContact: {
+    color: '#7ec8ff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  feedbackSubtext: {
+    color: '#aaaaaa',
+    fontSize: 12,
+    marginBottom: 12,
+  },
+  feedbackSubmit: {
+    backgroundColor: '#7ec8ff',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  feedbackSubmitText: {
+    color: '#1a1a2e',
+    fontSize: 14,
+    fontWeight: '700',
   },
   footer: {
     backgroundColor: '#1a1a2e',

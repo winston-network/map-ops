@@ -8,15 +8,33 @@ Offline map application for avalanche control operations in Utah's Cottonwood Ca
 
 ## Current Status
 
-**Version:** 2.11.0
+**Version:** 2.14.0
 **Phase:** TestFlight Beta Distribution
+
+**Updates (Mar 2, 2026):**
+- **New basemaps** - z10-15 JPG tilesets replacing z12-16 (topo 61→21MB, satellite 172→47MB, total 233→68MB)
+- **Blank opening basemap fixed** - Real tiles now exist at all opening zoom levels
+- **Avy paths restyled** - Dark blue outline (#1e3a5f) + light blue fill (#93c5fd)
+- **Gate icons enlarged** - 10% bigger on map (0.52→0.57)
+- **Gate toggle icon** - Now matches the barrier icon shown on map
+- **Pan bounds clamped** - Cannot pan beyond basemap tile extent
+- **New app icon, adaptive icon, splash screen** - Updated branding
+- **Feedback form** - Updated to new Google Form (smsmapping@gmail.com)
+- **Web basemaps updated** - PMTiles converted to z10-15, basemaps.json updated
+
+**Updates (Feb 26, 2026):**
+- **Gate icons** - Replaced yellow circles with barrier icon (64x64 PNG), tap for description popup
+- **Gate data updates** - Added LCC Hellgate; renamed gates (7 total)
+- **Avy report contacts** - Added LCC and Provo contacts
+- **New header logo** - Replaced snowflake with custom app icon
+- **Removed footer logos** (USFS, UDOT, Alta, Brighton)
 
 **Updates (Jan 12, 2026):**
 - **iOS build submitted to TestFlight** - Ready for beta testers
 - **Fixed basemap switching** - GeoJSON layers now persist when toggling topo/satellite (replaced unreliable `style.load` event with `isStyleLoaded()` polling)
 - **Updated map styling:**
   - Avalanche paths: pink (#f472b6) for better contrast with orange markers
-  - Gates: yellow circles with black "G" text label
+  - Gates: custom gate icon images
   - Staging: orange circles with bold black text showing mile marker numbers, black border
 - **Toggleable debug panel** - Hidden by default, tap "Debug" button to show
 - **3-second loading screen** - Snowflakes animation displays for minimum 3 seconds
@@ -74,8 +92,8 @@ Offline map application for avalanche control operations in Utah's Cottonwood Ca
 - Similar to Wasatch Backcountry Skiing app architecture
 
 **Bundled Basemap Files:**
-- `CC_shaded_topo.mbtiles` (60 MB) - Shaded relief topo, zoom 10-16
-- `CC_satellite_12_14.mbtiles` (26 MB) - Satellite imagery, zoom 12-14
+- `Topo_SLC_Provo_10_15_JPG.mbtiles` (21 MB) - Shaded relief topo, zoom 10-15
+- `Satellite_SLC_Provo_10_15_JPG.mbtiles` (47 MB) - Satellite imagery, zoom 10-15
 
 **Future Improvement:** Move MBTiles to GitHub Releases for download-on-first-launch (smaller app bundle)
 
@@ -101,9 +119,9 @@ mobile/
     │   ├── CC_shaded_topo.mbtiles      # Bundled topo basemap (60 MB)
     │   └── CC_satellite_12_14.mbtiles  # Bundled satellite basemap (26 MB)
     ├── layers/
-    │   ├── BCC_AvyPaths.json           # Avalanche paths (polygons)
-    │   ├── BCC_Gates.json              # Control gates (points)
-    │   └── BCC_Staging.json            # Staging areas (points)
+    │   ├── relevant_polygons.json           # Avalanche paths (polygons)
+    │   ├── UDOT_Gates.json              # Control gates (points)
+    │   └── UDOT_StagingAreas.json            # Staging areas (points)
     └── icons/
         └── ...
 ```
@@ -182,9 +200,9 @@ WHERE zoom_level = ? AND tile_column = ? AND tile_row = ?;
 - Custom shaded topo basemap (CC_shaded_topo_big.pmtiles, zoom 10-16)
 - Basemap toggle (Topo/Satellite) in sidebar
 - Big Cottonwood Canyon (BCC) layers added:
-  - BCC Avalanche Paths (polygons)
-  - BCC Gates (points with custom icons)
-  - BCC Staging Areas (points with custom icons)
+  - Avalanche Paths (polygons)
+  - UDOT Gates (points with custom icons)
+  - UDOT Staging Areas (points with custom icons)
 - Custom icon system for point layers
 - Improved UI design:
   - Ice-blue gradient MAP-OPS title with glow effects
@@ -200,7 +218,7 @@ WHERE zoom_level = ? AND tile_column = ? AND tile_row = ?;
 3. ~~TestFlight beta distribution~~ ✅ iOS build submitted
 4. Merge PR #2 to main
 5. Field testing with GPS tracking
-6. Custom gate icons (currently yellow circles with "G")
+6. Custom gate icons (replacing yellow circles) - in testing
 
 ---
 
@@ -210,8 +228,8 @@ MAP-OPS is an offline-capable map application designed for avalanche control tea
 
 - **Custom basemaps** - Toggle between Shaded Topo and Satellite (PMTiles format, no server needed)
 - **Operational layers** (GeoJSON):
-  - Avalanche Paths (polygons) - Pink
-  - Closure Gates (points) - Yellow circles with "G"
+  - Avalanche Paths (polygons) - Blue
+  - Closure Gates (points) - Gate icons
   - Staging Areas (points) - Orange circles with mile marker numbers
 - **GPS location tracking** for field personnel
 - **Layer toggle** to show/hide different data layers
@@ -257,9 +275,9 @@ The app works offline by bundling tile data and GeoJSON layers locally.
 |  +--------------------------+-------------------------------+ |
 |  | basemap/                 | layers/                       | |
 |  | - CC_shaded_topo.pmtiles | - layers.json (manifest)      | |
-|  | - satellite.pmtiles      | - BCC_AvyPaths.geojson        | |
-|  |   (No tile server!)      | - BCC_Gates.geojson           | |
-|  |                          | - BCC_Staging.geojson         | |
+|  | - satellite.pmtiles      | - relevant_polygons.geojson        | |
+|  |   (No tile server!)      | - UDOT_Gates.geojson           | |
+|  |                          | - UDOT_StagingAreas.geojson         | |
 |  +--------------------------+-------------------------------+ |
 +---------------------------------------------------------------+
 ```
@@ -286,9 +304,9 @@ map_app/
 │
 ├── layers/
 │   ├── layers.json         # Layer manifest
-│   ├── BCC_AvyPaths.geojson
-│   ├── BCC_Gates.geojson
-│   ├── BCC_Staging.geojson
+│   ├── relevant_polygons.geojson
+│   ├── UDOT_Gates.geojson
+│   ├── UDOT_StagingAreas.geojson
 │   └── archive/            # Old LCC layers
 │
 ├── basemap/
@@ -311,8 +329,8 @@ map_app/
 │   ├── icons/
 │   │   ├── icons.json      # Icon config
 │   │   ├── snowflake.png   # App logo
-│   │   ├── BCC_Gates.png
-│   │   └── BCC_Staging.png
+│   │   ├── UDOT_Gates.png
+│   │   └── UDOT_StagingAreas.png
 │   └── logos/
 │       ├── logos.json
 │       └── *.png           # Agency logos
@@ -332,9 +350,9 @@ map_app/
 {
   "name": "MAP-OPS Layers",
   "files": [
-    "BCC_AvyPaths.geojson",
-    "BCC_Gates.geojson",
-    "BCC_Staging.geojson"
+    "relevant_polygons.geojson",
+    "UDOT_Gates.geojson",
+    "UDOT_StagingAreas.geojson"
   ]
 }
 ```
@@ -344,8 +362,8 @@ map_app/
 {
   "defaultSize": 32,
   "icons": [
-    { "layer": "BCC_Staging", "file": "BCC_Staging.png", "size": 2 },
-    { "layer": "BCC_Gates", "file": "BCC_Gates.png", "size": 3 }
+    { "layer": "UDOT_StagingAreas", "file": "UDOT_StagingAreas.png", "size": 2 },
+    { "layer": "UDOT_Gates", "file": "UDOT_Gates.png", "size": 3 }
   ]
 }
 ```
@@ -358,9 +376,9 @@ Defined in `js/app.js`:
 
 ```javascript
 const layerStyles = {
-  'BCC_AvyPaths':  { color: '#ef4444', name: 'BCC Avalanche Paths' },  // Red
-  'BCC_Gates':     { color: '#f59e0b', name: 'BCC Gates' },            // Orange
-  'BCC_Staging':   { color: '#3b82f6', name: 'BCC Staging Areas' }     // Blue
+  'relevant_polygons':  { color: '#93c5fd', name: 'Avalanche Paths' },  // Light blue fill, dark blue outline
+  'UDOT_Gates':     { color: '#f59e0b', name: 'UDOT Gates' },            // Orange
+  'UDOT_StagingAreas':   { color: '#3b82f6', name: 'UDOT Staging Areas' }     // Blue
 };
 ```
 
@@ -486,7 +504,7 @@ git push origin feature/your-feature-name
 ## Attribution
 
 ### Icons
-- Gate icons created by Backwoods - Flaticon
+- Barrier icons created by Freepik - Flaticon
 - Protection icons created by rukanicon - Flaticon
 
 ### Mapping
