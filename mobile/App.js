@@ -310,6 +310,7 @@ export default function App() {
           setSelectedFeature({
             type: data.featureType,
             description: data.description,
+            meta: data.meta || null,
             tapX: data.tapX,
             tapY: data.tapY,
           });
@@ -366,6 +367,7 @@ export default function App() {
               type: 'updateLocation',
               lng: location.coords.longitude,
               lat: location.coords.latitude,
+              heading: location.coords.heading,
             });
           }
         }
@@ -519,11 +521,22 @@ export default function App() {
         >
           {selectedFeature.tapX != null ? (
             <View style={[styles.featurePopup, {
-              left: Math.min(Math.max(selectedFeature.tapX - 80, 10), SCREEN_WIDTH - 180),
-              top: Math.min(Math.max(selectedFeature.tapY + 90, 10), SCREEN_HEIGHT - 120),
+              left: Math.min(Math.max(selectedFeature.tapX - 110, 10), SCREEN_WIDTH - 240),
+              top: Math.min(Math.max(selectedFeature.tapY + 90, 10), SCREEN_HEIGHT - 200),
+              maxWidth: 240,
             }]}>
               <Text style={styles.popupType}>{selectedFeature.type}</Text>
               <Text style={styles.popupDescription}>{selectedFeature.description}</Text>
+              {selectedFeature.meta && Object.values(selectedFeature.meta).some(v => v) && (
+                <View style={styles.metaContainer}>
+                  {selectedFeature.meta.aspect && <Text style={styles.metaRow}><Text style={styles.metaLabel}>Aspect: </Text>{selectedFeature.meta.aspect}</Text>}
+                  {selectedFeature.meta.startZone && <Text style={styles.metaRow}><Text style={styles.metaLabel}>Start Zone: </Text>{selectedFeature.meta.startZone}</Text>}
+                  {selectedFeature.meta.verticalFall && <Text style={styles.metaRow}><Text style={styles.metaLabel}>Vertical: </Text>{selectedFeature.meta.verticalFall}</Text>}
+                  {selectedFeature.meta.runoutDist && <Text style={styles.metaRow}><Text style={styles.metaLabel}>Runout: </Text>{selectedFeature.meta.runoutDist}</Text>}
+                  {selectedFeature.meta.size && <Text style={styles.metaRow}><Text style={styles.metaLabel}>Size: </Text>{selectedFeature.meta.size}</Text>}
+                  {selectedFeature.meta.frequency && <Text style={styles.metaRow}><Text style={styles.metaLabel}>Frequency: </Text>{selectedFeature.meta.frequency}</Text>}
+                </View>
+              )}
             </View>
           ) : (
             <View style={styles.popup}>
@@ -842,6 +855,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     marginBottom: 8,
+  },
+  metaContainer: {
+    marginTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(126,200,255,0.2)',
+    paddingTop: 6,
+  },
+  metaRow: {
+    color: '#cccccc',
+    fontSize: 12,
+    marginBottom: 3,
+  },
+  metaLabel: {
+    color: '#7ec8ff',
+    fontWeight: '600',
   },
   popupHint: {
     color: '#888888',
