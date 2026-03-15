@@ -14,10 +14,43 @@ export const mapHtml = `
     #map { width: 100%; height: 100%; }
     .maplibregl-ctrl-attrib { display: none !important; }
     .maplibregl-ctrl-logo { display: none !important; }
+
+    /* Compass */
+    #compass {
+      position: absolute;
+      bottom: 12px;
+      right: 12px;
+      width: 60px;
+      height: 60px;
+      z-index: 10;
+      pointer-events: none;
+      transition: transform 0.15s ease-out;
+      filter: drop-shadow(0 0 4px rgba(255,255,255,0.6)) drop-shadow(0 2px 6px rgba(0,0,0,0.5));
+    }
   </style>
 </head>
 <body>
   <div id="map"></div>
+  <svg id="compass" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="northGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#ff4444"/>
+        <stop offset="100%" stop-color="#cc0000"/>
+      </linearGradient>
+      <linearGradient id="southGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#e2e8f0"/>
+        <stop offset="100%" stop-color="#a0aec0"/>
+      </linearGradient>
+    </defs>
+    <!-- North half -->
+    <polygon points="30,5 22,30 30,25 38,30" fill="url(#northGrad)" stroke="#fff" stroke-width="0.8"/>
+    <!-- South half -->
+    <polygon points="30,55 22,30 30,35 38,30" fill="url(#southGrad)" stroke="#fff" stroke-width="0.8" fill-opacity="0.7"/>
+    <!-- Center dot -->
+    <circle cx="30" cy="30" r="2.5" fill="#fff" stroke="#333" stroke-width="0.5"/>
+    <!-- "N" label -->
+    <text x="30" y="4" text-anchor="middle" fill="#e53e3e" font-size="13" font-weight="bold" font-family="sans-serif" dominant-baseline="middle">N</text>
+  </svg>
   <script>
     // Logging (console only)
     function log(msg) { console.log(msg); }
@@ -297,6 +330,12 @@ export const mapHtml = `
         attributionControl: false
       });
 
+      // Compass: rotate with map bearing
+      const compass = document.getElementById('compass');
+      map.on('rotate', () => {
+        compass.style.transform = 'rotate(' + (-map.getBearing()) + 'deg)';
+      });
+
       map.on('load', () => {
         log('Map loaded, sending mapReady');
         sendMessage({ type: 'mapReady' });
@@ -326,10 +365,19 @@ export const mapHtml = `
       map.on('click', 'avy-paths-fill', (e) => {
         if (e.features && e.features.length > 0) {
           const feature = e.features[0];
+          const p = feature.properties;
           sendMessage({
             type: 'featureSelected',
             featureType: 'Avalanche Path',
-            description: feature.properties.description || feature.properties.name || 'Unknown Path',
+            description: p.name || 'Unknown Path',
+            meta: {
+              aspect: p.starting_1 || null,
+              startZone: p.starting_z || null,
+              verticalFall: p.vertical_f || null,
+              runoutDist: p.distance_t || null,
+              size: p.size_of_sl || null,
+              frequency: p.return_int || null
+            },
             tapX: e.point.x,
             tapY: e.point.y
           });
@@ -562,32 +610,42 @@ export const mapHtml = `
       setTimeout(waitForStyle, 50);
     }
 
+    // User location marker with directional arrow
+    let userMarker = null;
+    let userArrow = null; // the arrow element inside the SVG
+
+    function createUserElement() {
+      const el = document.createElement('div');
+      el.style.cssText = 'width:36px;height:36px;pointer-events:none;position:relative;z-index:9999;';
+      el.innerHTML = '<svg viewBox="0 0 36 36" style="width:36px;height:36px;">' +
+        '<circle cx="18" cy="18" r="8" fill="#4285f4" stroke="#fff" stroke-width="3"/>' +
+        '<polygon id="user-arrow" points="18,2 14,10 18,7 22,10" fill="#4285f4" stroke="#fff" stroke-width="1" style="display:none;transform-origin:18px 18px;"/>' +
+      '</svg>';
+      return el;
+    }
+
     // Update user location
-    function updateUserLocation(lng, lat) {
+    function updateUserLocation(lng, lat, heading) {
       if (!map) return;
 
-      if (map.getSource('user-location')) {
-        map.getSource('user-location').setData({
-          type: 'Point',
-          coordinates: [lng, lat]
-        });
-      } else {
-        map.addSource('user-location', {
-          type: 'geojson',
-          data: { type: 'Point', coordinates: [lng, lat] }
-        });
+      const lngLat = [lng, lat];
 
-        map.addLayer({
-          id: 'user-location-layer',
-          type: 'circle',
-          source: 'user-location',
-          paint: {
-            'circle-radius': 8,
-            'circle-color': '#4285f4',
-            'circle-stroke-width': 3,
-            'circle-stroke-color': '#ffffff'
-          }
-        });
+      if (userMarker) {
+        userMarker.setLngLat(lngLat);
+      } else {
+        const el = createUserElement();
+        userArrow = el.querySelector('#user-arrow');
+        userMarker = new maplibregl.Marker({ element: el, anchor: 'center', rotationAlignment: 'map' })
+          .setLngLat(lngLat)
+          .addTo(map);
+      }
+
+      // Rotate arrow to heading
+      if (heading != null && heading >= 0 && userArrow) {
+        userArrow.style.display = 'block';
+        userArrow.style.transform = 'rotate(' + heading + 'deg)';
+      } else if (userArrow) {
+        userArrow.style.display = 'none';
       }
     }
 
@@ -686,7 +744,7 @@ export const mapHtml = `
             break;
 
           case 'updateLocation':
-            updateUserLocation(data.lng, data.lat);
+            updateUserLocation(data.lng, data.lat, data.heading);
             break;
         }
       } catch (e) {
