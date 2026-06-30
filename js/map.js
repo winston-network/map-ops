@@ -504,10 +504,12 @@ const MapModule = (function() {
                 }
             });
             if (layer.labelField) {
+                const labelMinZoom = layer.labelMinZoom != null ? layer.labelMinZoom : 13;
                 map.addLayer({
                     id: `${pointLayerId}-labels`,
                     type: 'symbol',
                     source: sourceId,
+                    minzoom: labelMinZoom,
                     filter: ['any',
                         ['==', ['geometry-type'], 'Point'],
                         ['==', ['geometry-type'], 'MultiPoint']
@@ -516,16 +518,21 @@ const MapModule = (function() {
                         'text-field': ['get', layer.labelField],
                         'text-size': [
                             'interpolate', ['linear'], ['zoom'],
-                            10, Math.max(7, baseLabelSize * 0.6),
-                            13, baseLabelSize * 0.85,
-                            14, baseLabelSize,
-                            17, baseLabelSize * 1.25
+                            labelMinZoom,     baseLabelSize * 0.85,
+                            labelMinZoom + 1, baseLabelSize,
+                            labelMinZoom + 4, baseLabelSize * 1.25
                         ],
                         'text-font': ['Noto Sans Bold'],
                         'text-allow-overlap': true
                     },
                     paint: {
-                        'text-color': layer.labelColor || '#000000'
+                        'text-color': layer.labelColor || '#000000',
+                        // Fade in over a one-zoom window so the snap-in isn't jarring
+                        'text-opacity': [
+                            'interpolate', ['linear'], ['zoom'],
+                            labelMinZoom,       0,
+                            labelMinZoom + 0.5, 1
+                        ]
                     }
                 });
             }
