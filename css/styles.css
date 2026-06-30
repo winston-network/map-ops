@@ -178,6 +178,51 @@ body {
     }
 }
 
+/* View Mode Toggle (2D / 3D) */
+.view-mode-toggle {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px;
+    border-radius: var(--radius-full);
+    background: rgba(15, 23, 42, 0.65);
+    border: 1px solid var(--border-color);
+    backdrop-filter: blur(8px);
+    box-shadow: var(--shadow-sm);
+}
+
+.view-mode-btn {
+    appearance: none;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    padding: 6px 12px;
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    transition: color var(--transition-fast), background var(--transition-fast),
+                box-shadow var(--transition-fast);
+}
+
+.view-mode-btn:hover {
+    color: var(--text-primary);
+}
+
+.view-mode-btn.active {
+    background: linear-gradient(180deg, #ffffff 0%, #e0f0ff 40%, #7ec8ff 100%);
+    color: #0b1220;
+    box-shadow: 0 0 10px rgba(120, 200, 255, 0.55),
+                0 0 22px rgba(80, 160, 255, 0.35);
+}
+
+@media (max-width: 768px) {
+    .view-mode-btn {
+        padding: 5px 10px;
+        font-size: 0.7rem;
+    }
+}
+
 /* Status Indicator */
 .status-indicator {
     display: flex;

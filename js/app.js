@@ -231,6 +231,7 @@ const App = (function() {
         elements.popupTitle = document.getElementById('popup-title');
         elements.popupContent = document.getElementById('popup-content');
         elements.popupClose = document.getElementById('popup-close');
+        elements.viewModeButtons = document.querySelectorAll('#view-mode-toggle .view-mode-btn');
         elements.loadingOverlay = document.getElementById('loading-overlay');
         elements.toastContainer = document.getElementById('toast-container');
     }
@@ -251,6 +252,11 @@ const App = (function() {
 
         // Popup close
         elements.popupClose.addEventListener('click', hideFeaturePopup);
+
+        // View mode (2D / 3D) chip
+        elements.viewModeButtons.forEach(btn => {
+            btn.addEventListener('click', () => setViewMode(btn.dataset.mode));
+        });
 
         // Online/Offline events
         window.addEventListener('online', updateOnlineStatus);
@@ -471,6 +477,18 @@ const App = (function() {
     }
 
     /**
+     * Set 2D / 3D view mode and update the chip's active state.
+     */
+    function setViewMode(mode) {
+        MapModule.setViewMode(mode);
+        elements.viewModeButtons.forEach(btn => {
+            const isActive = btn.dataset.mode === mode;
+            btn.classList.toggle('active', isActive);
+            btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        });
+    }
+
+    /**
      * Handle feature click
      */
     function handleFeatureClick(event) {
@@ -478,6 +496,7 @@ const App = (function() {
         const layer = state.layers.find(l => l.id === layerId);
 
         showFeaturePopup(feature, layer, lngLat);
+        MapModule.showSelectionHalo(lngLat);
     }
 
     /**
@@ -561,6 +580,7 @@ const App = (function() {
      */
     function hideFeaturePopup() {
         elements.featurePopup.classList.add('hidden');
+        MapModule.clearSelectionHalo();
     }
 
     /**

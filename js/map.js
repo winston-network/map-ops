@@ -16,6 +16,9 @@ const MapModule = (function() {
     let pmtilesProtocol = null;
     let activeBasemap = null; // Track which basemap is active
     let BASEMAPS = {}; // Loaded from basemaps.json
+    let TERRAIN = null; // Optional terrain DEM config from basemaps.json
+    let viewMode = '2d'; // '2d' or '3d'
+    let selectedHaloId = 0;
 
     /**
      * Load basemaps configuration from basemaps.json
@@ -45,7 +48,18 @@ const MapModule = (function() {
                 activeBasemap = data.basemaps[0].id;
             }
 
-            console.log('Loaded basemaps:', Object.keys(BASEMAPS));
+            // Optional terrain DEM (Terrain-RGB encoded PMTiles)
+            if (data.terrain && data.terrain.file) {
+                TERRAIN = {
+                    file: data.terrain.file,
+                    encoding: data.terrain.encoding || 'terrarium',
+                    tileSize: data.terrain.tileSize || 512,
+                    maxzoom: data.terrain.maxzoom || 14,
+                    exaggeration: data.terrain.exaggeration || 1.4
+                };
+            }
+
+            console.log('Loaded basemaps:', Object.keys(BASEMAPS), TERRAIN ? '+terrain' : '');
             return true;
         } catch (e) {
             console.warn('Could not load basemaps.json:', e.message);
@@ -819,6 +833,106 @@ const MapModule = (function() {
     }
 
     /**
+     * Set up the terrain DEM source. Called once after the PMTiles style is live.
+     * Safe to call multiple times — re-adding is a no-op.
+     */
+    function setupTerrainSource() {
+        if (!map || !TERRAIN) return;
+        if (map.getSource('terrain-dem')) return;
+
+        map.addSource('terrain-dem', {
+            type: 'raster-dem',
+            url: getPMTilesUrl(TERRAIN.file),
+            tileSize: TERRAIN.tileSize,
+            maxzoom: TERRAIN.maxzoom,
+            encoding: TERRAIN.encoding
+        });
+    }
+
+    /**
+     * Toggle 2D / 3D view mode.
+     * 3D enables pitch and (when a DEM PMTiles is configured) terrain.
+     * 2D flattens pitch and removes terrain.
+     */
+    function setViewMode(mode) {
+        if (!map || (mode !== '2d' && mode !== '3d')) return;
+        viewMode = mode;
+
+        if (mode === '3d') {
+            if (TERRAIN) {
+                setupTerrainSource();
+                map.setTerrain({ source: 'terrain-dem', exaggeration: TERRAIN.exaggeration });
+            }
+            map.easeTo({ pitch: 60, duration: 600 });
+        } else {
+            map.setTerrain(null);
+            map.easeTo({ pitch: 0, bearing: 0, duration: 600 });
+        }
+    }
+
+    function getViewMode() {
+        return viewMode;
+    }
+
+    /**
+     * Draw a pulsing glow ring at lngLat. Replaces any existing halo.
+     * Pass null to clear.
+     */
+    function showSelectionHalo(lngLat) {
+        if (!map) return;
+        const sourceId = 'selection-halo';
+        const layerId = 'selection-halo-layer';
+
+        if (!lngLat) {
+            if (map.getLayer(layerId)) map.removeLayer(layerId);
+            if (map.getSource(sourceId)) map.removeSource(sourceId);
+            return;
+        }
+
+        const data = {
+            type: 'Feature',
+            geometry: { type: 'Point', coordinates: [lngLat.lng, lngLat.lat] }
+        };
+
+        if (map.getSource(sourceId)) {
+            map.getSource(sourceId).setData(data);
+        } else {
+            map.addSource(sourceId, { type: 'geojson', data });
+            map.addLayer({
+                id: layerId,
+                type: 'circle',
+                source: sourceId,
+                paint: {
+                    'circle-radius': 22,
+                    'circle-color': 'rgba(0,0,0,0)',
+                    'circle-stroke-color': '#7ec8ff',
+                    'circle-stroke-width': 3,
+                    'circle-stroke-opacity': 0.95,
+                    'circle-pitch-alignment': 'map'
+                }
+            });
+        }
+
+        // Pulse the stroke width to draw the eye.
+        const myId = ++selectedHaloId;
+        const start = performance.now();
+        function step(now) {
+            if (myId !== selectedHaloId || !map.getLayer(layerId)) return;
+            const t = ((now - start) / 1200) % 1;
+            const eased = 0.5 - 0.5 * Math.cos(t * Math.PI * 2);
+            map.setPaintProperty(layerId, 'circle-radius', 18 + eased * 12);
+            map.setPaintProperty(layerId, 'circle-stroke-opacity', 0.55 + 0.4 * (1 - eased));
+            requestAnimationFrame(step);
+        }
+        requestAnimationFrame(step);
+    }
+
+    function clearSelectionHalo() {
+        selectedHaloId++;
+        showSelectionHalo(null);
+    }
+
+    /**
      * Get map instance
      */
     function getMap() {
@@ -861,7 +975,11 @@ const MapModule = (function() {
         switchBasemap,
         getBasemaps,
         getActiveBasemap,
-        setBasemapVisibility
+        setBasemapVisibility,
+        setViewMode,
+        getViewMode,
+        showSelectionHalo,
+        clearSelectionHalo
     };
 })();
 
