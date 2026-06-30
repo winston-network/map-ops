@@ -2,18 +2,22 @@
   "basemaps": [
     {
       "id": "slc-provo-shaded-topo",
-      "name": "SLC Provo Shaded Topo",
+      "name": "Shaded Topo",
       "file": "Topo_SLC_Provo_10_15_JPG.pmtiles",
-      "minzoom": 10,
-      "maxzoom": 15,
+      "tiles": ["https://a.tile.opentopomap.org/{z}/{x}/{y}.png", "https://b.tile.opentopomap.org/{z}/{x}/{y}.png", "https://c.tile.opentopomap.org/{z}/{x}/{y}.png"],
+      "attribution": "Map data: &copy; OpenStreetMap contributors, SRTM | Map style: &copy; OpenTopoMap (CC-BY-SA)",
+      "minzoom": 0,
+      "maxzoom": 17,
       "default": true
     },
     {
       "id": "slc-provo-satellite",
-      "name": "SLC Provo Satellite",
+      "name": "Satellite",
       "file": "Satellite_SLC_Provo_10_15_JPG.pmtiles",
-      "minzoom": 10,
-      "maxzoom": 15,
+      "tiles": ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"],
+      "attribution": "Tiles &copy; Esri",
+      "minzoom": 0,
+      "maxzoom": 19,
       "default": false
     }
   ]

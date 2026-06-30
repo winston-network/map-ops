@@ -75,42 +75,38 @@ const MapModule = (function() {
         return url;
     }
 
-    // Local PMTiles style - built dynamically from loaded basemaps
-    function buildPMTilesStyle() {
+    // Build a style that includes all basemaps. Each basemap can come from
+    // either a local PMTiles file or an online raster tiles URL.
+    // pmtilesAvailability is a map of basemapId -> bool (skip PMTiles when false).
+    function buildBasemapStyle(pmtilesAvailability) {
         const sources = {};
         const layers = [];
 
-        // Build sources and layers dynamically from BASEMAPS
         Object.keys(BASEMAPS).forEach(id => {
             const basemap = BASEMAPS[id];
             const sourceId = `${id}-tiles`;
+            const usePmtiles = (pmtilesAvailability || {})[id] === true && basemap.file;
 
-            // Add source
-            sources[sourceId] = {
-                type: 'raster',
-                url: getPMTilesUrl(basemap.file),
-                tileSize: 256
-            };
+            sources[sourceId] = usePmtiles
+                ? { type: 'raster', url: getPMTilesUrl(basemap.file), tileSize: 256 }
+                : { type: 'raster', tiles: basemap.tiles || [], tileSize: 256, attribution: basemap.attribution || '' };
 
-            // Add layer (active basemap visible, others hidden)
             layers.push({
                 id: `${id}-layer`,
                 type: 'raster',
                 source: sourceId,
                 minzoom: basemap.minzoom || 0,
                 maxzoom: basemap.maxzoom || 19,
-                layout: {
-                    'visibility': id === activeBasemap ? 'visible' : 'none'
-                }
+                layout: { 'visibility': id === activeBasemap ? 'visible' : 'none' }
             });
         });
 
-        return {
-            version: 8,
-            name: 'Local Basemaps',
-            sources: sources,
-            layers: layers
-        };
+        return { version: 8, name: 'MAP-OPS Basemaps', sources, layers };
+    }
+
+    // Backwards-compat alias for any old callers.
+    function buildPMTilesStyle() {
+        return buildBasemapStyle({});
     }
 
     // Map style - using free OpenStreetMap tiles
@@ -166,33 +162,27 @@ const MapModule = (function() {
     };
 
     /**
-     * Check if PMTiles basemap files are available
+     * Probe each basemap's PMTiles file with a HEAD request; return a map of id -> bool.
      */
+    async function probePMTilesAvailability() {
+        const availability = {};
+        const ids = Object.keys(BASEMAPS);
+        await Promise.all(ids.map(async id => {
+            const file = BASEMAPS[id].file;
+            if (!file) { availability[id] = false; return; }
+            try {
+                const r = await fetch(`basemap/${file}`, { method: 'HEAD' });
+                availability[id] = r.ok;
+            } catch (_) { availability[id] = false; }
+            console.log(`Basemap ${id} (${file}): ${availability[id] ? 'PMTiles available' : 'using online fallback'}`);
+        }));
+        return availability;
+    }
+
+    // Backwards-compat: returns whether any PMTiles file is available.
     async function checkPMTilesAvailable() {
-        try {
-            // Check if at least one basemap is available
-            const basemapIds = Object.keys(BASEMAPS);
-            if (basemapIds.length === 0) {
-                console.log('No basemaps configured');
-                return false;
-            }
-
-            const results = await Promise.all(
-                basemapIds.map(async id => {
-                    const file = BASEMAPS[id].file;
-                    const response = await fetch(`basemap/${file}`, { method: 'HEAD' }).catch(() => ({ ok: false }));
-                    return { id, file, available: response.ok };
-                })
-            );
-
-            results.forEach(r => {
-                console.log(`Basemap ${r.id} (${r.file}): ${r.available ? 'available' : 'not found'}`);
-            });
-
-            return results.some(r => r.available);
-        } catch (e) {
-            return false;
-        }
+        const a = await probePMTilesAvailability();
+        return Object.values(a).some(Boolean);
     }
 
     /**
@@ -269,31 +259,21 @@ const MapModule = (function() {
         // Load basemap configuration from basemaps.json
         await loadBasemapsConfig();
 
-        // Start with dark style, will switch to PMTiles if available
+        // Probe which (if any) basemap PMTiles are present locally, then build
+        // a hybrid style with PMTiles where available and online raster fallback otherwise.
+        const pmtilesAvailability = await probePMTilesAvailability();
+        const initialStyle = Object.keys(BASEMAPS).length
+            ? buildBasemapStyle(pmtilesAvailability)
+            : DARK_MAP_STYLE;
+
         map = new maplibregl.Map({
             container: containerId,
-            style: DARK_MAP_STYLE,
+            style: initialStyle,
             center: mapOptions.center,
             zoom: mapOptions.zoom,
             minZoom: mapOptions.minZoom,
             maxZoom: mapOptions.maxZoom,
             attributionControl: false
-        });
-
-        // Check for local PMTiles basemap and switch if available
-        checkPMTilesAvailable().then(available => {
-            if (available) {
-                console.log('PMTiles basemap found, switching to local tiles (no tile server needed)');
-                map.setStyle(buildPMTilesStyle());
-                // Re-fire map:loaded after style fully loads so layers get re-added
-                map.once('idle', () => {
-                    console.log('Map idle after style change, re-adding layers');
-                    document.dispatchEvent(new CustomEvent('map:loaded'));
-                });
-            } else {
-                console.log('PMTiles basemap not found, using online tiles');
-                console.log(`Add your basemap to: basemap/*.pmtiles`);
-            }
         });
 
         // Add navigation control
@@ -947,60 +927,67 @@ const MapModule = (function() {
     }
 
     /**
-     * Draw a pulsing glow ring at lngLat. Replaces any existing halo.
+     * Highlight the boundary of the selected feature with a static blue stroke.
+     * Polygons / lines -> blue line on the geometry edge.
+     * Points -> bright blue ring around the icon/circle.
      * Pass null to clear.
      */
-    function showSelectionHalo(lngLat) {
+    function showSelectionHalo(feature) {
         if (!map) return;
         const sourceId = 'selection-halo';
-        const layerId = 'selection-halo-layer';
+        const lineLayer = 'selection-halo-line';
+        const pointLayer = 'selection-halo-point';
+        const HIGHLIGHT = '#7ec8ff';
 
-        if (!lngLat) {
-            if (map.getLayer(layerId)) map.removeLayer(layerId);
+        if (!feature) {
+            [lineLayer, pointLayer].forEach(id => { if (map.getLayer(id)) map.removeLayer(id); });
             if (map.getSource(sourceId)) map.removeSource(sourceId);
             return;
         }
 
-        const data = {
-            type: 'Feature',
-            geometry: { type: 'Point', coordinates: [lngLat.lng, lngLat.lat] }
-        };
-
+        const data = { type: 'FeatureCollection', features: [feature] };
         if (map.getSource(sourceId)) {
             map.getSource(sourceId).setData(data);
         } else {
             map.addSource(sourceId, { type: 'geojson', data });
+            // Polygon / line boundary stroke
             map.addLayer({
-                id: layerId,
+                id: lineLayer,
+                type: 'line',
+                source: sourceId,
+                filter: ['any',
+                    ['==', ['geometry-type'], 'Polygon'],
+                    ['==', ['geometry-type'], 'MultiPolygon'],
+                    ['==', ['geometry-type'], 'LineString'],
+                    ['==', ['geometry-type'], 'MultiLineString']
+                ],
+                paint: {
+                    'line-color': HIGHLIGHT,
+                    'line-width': 4,
+                    'line-opacity': 0.95
+                }
+            });
+            // Point ring
+            map.addLayer({
+                id: pointLayer,
                 type: 'circle',
                 source: sourceId,
+                filter: ['any',
+                    ['==', ['geometry-type'], 'Point'],
+                    ['==', ['geometry-type'], 'MultiPoint']
+                ],
                 paint: {
-                    'circle-radius': 22,
+                    'circle-radius': 18,
                     'circle-color': 'rgba(0,0,0,0)',
-                    'circle-stroke-color': '#7ec8ff',
+                    'circle-stroke-color': HIGHLIGHT,
                     'circle-stroke-width': 3,
-                    'circle-stroke-opacity': 0.95,
-                    'circle-pitch-alignment': 'map'
+                    'circle-stroke-opacity': 0.9
                 }
             });
         }
-
-        // Pulse the stroke width to draw the eye.
-        const myId = ++selectedHaloId;
-        const start = performance.now();
-        function step(now) {
-            if (myId !== selectedHaloId || !map.getLayer(layerId)) return;
-            const t = ((now - start) / 1200) % 1;
-            const eased = 0.5 - 0.5 * Math.cos(t * Math.PI * 2);
-            map.setPaintProperty(layerId, 'circle-radius', 18 + eased * 12);
-            map.setPaintProperty(layerId, 'circle-stroke-opacity', 0.55 + 0.4 * (1 - eased));
-            requestAnimationFrame(step);
-        }
-        requestAnimationFrame(step);
     }
 
     function clearSelectionHalo() {
-        selectedHaloId++;
         showSelectionHalo(null);
     }
 

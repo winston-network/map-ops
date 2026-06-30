@@ -131,16 +131,15 @@ const App = (function() {
                         };
                     }
 
-                    const layer = {
+                    const layer = Object.assign({}, style, {
                         id: `layer_${baseName}`,
-                        name: style.name,
-                        color: style.color,
+                        baseName: baseName,
                         visible: true,
                         data: parsed.data,
                         featureCount: parsed.featureCount,
                         bounds: parsed.bounds,
-                        icon: icon  // Will be null for polygon layers, set for point layers with icons
-                    };
+                        icon: icon  // legacy icons-from-config path
+                    });
 
                     loadedLayers.push(layer);
 
@@ -496,7 +495,7 @@ const App = (function() {
         const layer = state.layers.find(l => l.id === layerId);
 
         showFeaturePopup(feature, layer, lngLat);
-        MapModule.showSelectionHalo(lngLat);
+        MapModule.showSelectionHalo(feature);
     }
 
     /**
@@ -504,11 +503,12 @@ const App = (function() {
      */
     function showFeaturePopup(feature, layer, lngLat) {
         const properties = feature.properties || {};
-        const layerId = layer?.id || '';
+        // Use baseName (e.g. "UDOT_StagingAreas") so legacy "layer_" prefix doesn't break matching
+        const baseName = layer?.baseName || (layer?.id || '').replace(/^layer_/, '');
 
         let title, html;
 
-        if (layerId === 'relevant_polygons') {
+        if (baseName === 'relevant_polygons') {
             // Avalanche path: name + metadata block (Aspect / Start Zone / Vertical / Runout / Size / Frequency)
             title = 'Avalanche Path';
             const name = properties.name || 'Unknown Path';
@@ -528,10 +528,10 @@ const App = (function() {
                         <span class="property-value">${formatPropertyValue(v)}</span>
                     </div>`).join('');
             }
-        } else if (layerId === 'UDOT_Gates') {
+        } else if (baseName === 'UDOT_Gates') {
             title = 'Gate';
             html = `<div class="property-value" style="font-size: 0.9rem;">${properties.description || properties.name || 'Gate'}</div>`;
-        } else if (layerId === 'UDOT_StagingAreas') {
+        } else if (baseName === 'UDOT_StagingAreas') {
             title = 'Staging Area';
             const mm = properties.mile_marker || properties.description || '?';
             html = `<div class="property-value" style="font-size: 0.9rem;">Mile Marker ${mm}</div>`;

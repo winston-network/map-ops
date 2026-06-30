@@ -361,11 +361,61 @@ export const mapHtml = `
         }
       });
 
+      // Static blue boundary highlight on tap (no pulsing).
+      // Polygons / lines -> stroke on the feature boundary.
+      // Points -> bright blue ring.
+      const HIGHLIGHT = '#7ec8ff';
+      function showSelectionHalo(feature) {
+        const src = 'selection-halo';
+        const lineId = 'selection-halo-line';
+        const pointId = 'selection-halo-point';
+
+        if (!feature) {
+          if (map.getLayer(lineId)) map.removeLayer(lineId);
+          if (map.getLayer(pointId)) map.removeLayer(pointId);
+          if (map.getSource(src)) map.removeSource(src);
+          return;
+        }
+        const data = { type: 'FeatureCollection', features: [feature] };
+        if (map.getSource(src)) {
+          map.getSource(src).setData(data);
+        } else {
+          map.addSource(src, { type: 'geojson', data });
+          map.addLayer({
+            id: lineId, type: 'line', source: src,
+            filter: ['any',
+              ['==', ['geometry-type'], 'Polygon'], ['==', ['geometry-type'], 'MultiPolygon'],
+              ['==', ['geometry-type'], 'LineString'], ['==', ['geometry-type'], 'MultiLineString']
+            ],
+            paint: { 'line-color': HIGHLIGHT, 'line-width': 4, 'line-opacity': 0.95 }
+          });
+          map.addLayer({
+            id: pointId, type: 'circle', source: src,
+            filter: ['any', ['==', ['geometry-type'], 'Point'], ['==', ['geometry-type'], 'MultiPoint']],
+            paint: {
+              'circle-radius': 18,
+              'circle-color': 'rgba(0,0,0,0)',
+              'circle-stroke-color': HIGHLIGHT,
+              'circle-stroke-width': 3,
+              'circle-stroke-opacity': 0.9
+            }
+          });
+        }
+      }
+      // Clear highlight when tapping empty map area
+      map.on('click', (e) => {
+        const hits = map.queryRenderedFeatures(e.point, {
+          layers: ['avy-paths-fill', 'gates-layer', 'staging-layer'].filter(id => map.getLayer(id))
+        });
+        if (!hits || hits.length === 0) showSelectionHalo(null);
+      });
+
       // Click handlers for features
       map.on('click', 'avy-paths-fill', (e) => {
         if (e.features && e.features.length > 0) {
           const feature = e.features[0];
           const p = feature.properties;
+          showSelectionHalo(feature);
           sendMessage({
             type: 'featureSelected',
             featureType: 'Avalanche Path',
@@ -387,6 +437,7 @@ export const mapHtml = `
       map.on('click', 'gates-layer', (e) => {
         if (e.features && e.features.length > 0) {
           const feature = e.features[0];
+          showSelectionHalo(feature);
           sendMessage({
             type: 'featureSelected',
             featureType: 'Gate',
@@ -400,6 +451,7 @@ export const mapHtml = `
       map.on('click', 'staging-layer', (e) => {
         if (e.features && e.features.length > 0) {
           const feature = e.features[0];
+          showSelectionHalo(feature);
           sendMessage({
             type: 'featureSelected',
             featureType: 'Staging Area',
