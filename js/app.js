@@ -82,9 +82,9 @@ const App = (function() {
             'Avy_Paths': { color: '#ef4444', name: 'LCC Avalanche Paths' },      // Red
             'Closure_Gates': { color: '#f59e0b', name: 'LCC Closure Gates' },    // Orange/Yellow
             'Pad_Locations': { color: '#22c55e', name: 'LCC Gun Pads' },         // Green
-            'relevant_polygons': { color: '#f472b6', name: 'Avy_Paths' },           // Pink
-            'UDOT_Gates': { color: '#f59e0b', name: 'Gates' },                   // Orange (match LCC gates)
-            'UDOT_StagingAreas': { color: '#a855f7', name: 'Staging' }           // Purple
+            'relevant_polygons': { color: '#f472b6', name: 'Avy Paths', fillOpacity: 0.3, lineOpacity: 0.8, lineWidth: 2 },
+            'UDOT_Gates': { name: 'Gates', iconImage: 'gate-icon', iconSrc: 'images/icons/New_Gates.png', iconSize: 0.57, iconAnchor: 'bottom' },
+            'UDOT_StagingAreas': { name: 'Staging', color: '#ff6600', circleRadius: 14, strokeColor: '#000000', strokeWidth: 2, labelField: 'mile_marker', labelSize: 11, labelColor: '#000000' }
         };
 
         // Load icons config
@@ -506,16 +506,35 @@ const App = (function() {
         const properties = feature.properties || {};
         const layerId = layer?.id || '';
 
-        // For UDOT layers, show simplified popup with just description
-        const isUDOTLayer = layerId.includes('UDOT') || layerId.includes('relevant_polygons');
-
         let title, html;
 
-        if (isUDOTLayer) {
-            // Use description as the main content for UDOT layers
-            const description = properties.description || properties.name || 'Unknown';
-            title = layer?.name || 'Feature';
-            html = `<div class="property-value" style="font-size: 0.9rem;">${description}</div>`;
+        if (layerId === 'relevant_polygons') {
+            // Avalanche path: name + metadata block (Aspect / Start Zone / Vertical / Runout / Size / Frequency)
+            title = 'Avalanche Path';
+            const name = properties.name || 'Unknown Path';
+            const fields = [
+                ['Aspect', properties.starting_1],
+                ['Start Zone', properties.starting_z],
+                ['Vertical', properties.vertical_f],
+                ['Runout', properties.distance_t],
+                ['Size', properties.size_of_sl],
+                ['Frequency', properties.return_int]
+            ].filter(([, v]) => v !== null && v !== undefined && v !== '');
+            html = `<div class="property-value" style="font-size: 0.95rem; font-weight: 600; margin-bottom: 0.6rem;">${name}</div>`;
+            if (fields.length) {
+                html += fields.map(([k, v]) => `
+                    <div class="property-row">
+                        <span class="property-key">${k}</span>
+                        <span class="property-value">${formatPropertyValue(v)}</span>
+                    </div>`).join('');
+            }
+        } else if (layerId === 'UDOT_Gates') {
+            title = 'Gate';
+            html = `<div class="property-value" style="font-size: 0.9rem;">${properties.description || properties.name || 'Gate'}</div>`;
+        } else if (layerId === 'UDOT_StagingAreas') {
+            title = 'Staging Area';
+            const mm = properties.mile_marker || properties.description || '?';
+            html = `<div class="property-value" style="font-size: 0.9rem;">Mile Marker ${mm}</div>`;
         } else {
             // Default behavior for other layers
             title = properties.name || properties.title || layer?.name || 'Feature Details';

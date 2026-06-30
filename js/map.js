@@ -415,7 +415,7 @@ const MapModule = (function() {
             ],
             paint: {
                 'fill-color': layer.color,
-                'fill-opacity': 0.3
+                'fill-opacity': layer.fillOpacity != null ? layer.fillOpacity : 0.3
             }
         });
 
@@ -430,7 +430,8 @@ const MapModule = (function() {
             ],
             paint: {
                 'line-color': layer.color,
-                'line-width': 2
+                'line-width': layer.lineWidth != null ? layer.lineWidth : 2,
+                'line-opacity': layer.lineOpacity != null ? layer.lineOpacity : 1
             }
         });
 
@@ -445,12 +446,79 @@ const MapModule = (function() {
             ],
             paint: {
                 'line-color': layer.color,
-                'line-width': 3
+                'line-width': layer.lineWidth != null ? layer.lineWidth : 3,
+                'line-opacity': layer.lineOpacity != null ? layer.lineOpacity : 1
             }
         });
 
-        // Add point layer (use icon if available, otherwise circle)
-        if (layer.icon) {
+        // Point layer: gate symbol (iconImage + iconSrc), or styled circles, or fallback
+        if (layer.iconImage && layer.iconSrc) {
+            const iconId = layer.iconImage;
+            const addSymbol = () => {
+                if (map.getLayer(pointLayerId)) return;
+                map.addLayer({
+                    id: pointLayerId,
+                    type: 'symbol',
+                    source: sourceId,
+                    filter: ['any',
+                        ['==', ['geometry-type'], 'Point'],
+                        ['==', ['geometry-type'], 'MultiPoint']
+                    ],
+                    layout: {
+                        'icon-image': iconId,
+                        'icon-size': layer.iconSize != null ? layer.iconSize : 0.57,
+                        'icon-allow-overlap': true,
+                        'icon-anchor': layer.iconAnchor || 'bottom'
+                    }
+                });
+            };
+            if (map.hasImage(iconId)) {
+                addSymbol();
+            } else {
+                map.loadImage(layer.iconSrc, (err, image) => {
+                    if (err) { console.warn(`Gate icon load failed for ${layer.id}`); return; }
+                    if (!map.hasImage(iconId)) map.addImage(iconId, image);
+                    addSymbol();
+                });
+            }
+        } else if (layer.circleRadius || layer.labelField) {
+            // Styled circles + optional labels (staging areas)
+            map.addLayer({
+                id: pointLayerId,
+                type: 'circle',
+                source: sourceId,
+                filter: ['any',
+                    ['==', ['geometry-type'], 'Point'],
+                    ['==', ['geometry-type'], 'MultiPoint']
+                ],
+                paint: {
+                    'circle-color': layer.color,
+                    'circle-radius': layer.circleRadius || 14,
+                    'circle-stroke-color': layer.strokeColor || '#000000',
+                    'circle-stroke-width': layer.strokeWidth != null ? layer.strokeWidth : 2
+                }
+            });
+            if (layer.labelField) {
+                map.addLayer({
+                    id: `${pointLayerId}-labels`,
+                    type: 'symbol',
+                    source: sourceId,
+                    filter: ['any',
+                        ['==', ['geometry-type'], 'Point'],
+                        ['==', ['geometry-type'], 'MultiPoint']
+                    ],
+                    layout: {
+                        'text-field': ['get', layer.labelField],
+                        'text-size': layer.labelSize || 11,
+                        'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+                        'text-allow-overlap': true
+                    },
+                    paint: {
+                        'text-color': layer.labelColor || '#000000'
+                    }
+                });
+            }
+        } else if (layer.icon) {
             // Load icon image if not already loaded
             const iconId = `icon-${layer.id}`;
             if (!map.hasImage(iconId)) {
@@ -555,6 +623,7 @@ const MapModule = (function() {
     function removeLayer(layerId) {
         const sourceId = `source-${layerId}`;
         const layerIds = [
+            `layer-${layerId}-points-labels`,
             `layer-${layerId}-points`,
             `layer-${layerId}-lines`,
             `layer-${layerId}-polygons`,
@@ -578,6 +647,7 @@ const MapModule = (function() {
     function setLayerVisibility(layerId, visible) {
         const visibility = visible ? 'visible' : 'none';
         const layerIds = [
+            `layer-${layerId}-points-labels`,
             `layer-${layerId}-points`,
             `layer-${layerId}-lines`,
             `layer-${layerId}-polygons`,
