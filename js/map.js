@@ -50,14 +50,16 @@ const MapModule = (function() {
                 activeBasemap = data.basemaps[0].id;
             }
 
-            // Optional terrain DEM (Terrain-RGB encoded PMTiles)
-            if (data.terrain && data.terrain.file) {
+            // Optional terrain DEM (PMTiles `file` OR online `tiles` URL)
+            if (data.terrain && (data.terrain.file || (data.terrain.tiles && data.terrain.tiles.length))) {
                 TERRAIN = {
-                    file: data.terrain.file,
+                    file: data.terrain.file || null,
+                    tiles: data.terrain.tiles || null,
                     encoding: data.terrain.encoding || 'terrarium',
-                    tileSize: data.terrain.tileSize || 512,
+                    tileSize: data.terrain.tileSize || 256,
                     maxzoom: data.terrain.maxzoom || 14,
-                    exaggeration: data.terrain.exaggeration || 1.4
+                    exaggeration: data.terrain.exaggeration || 1.4,
+                    attribution: data.terrain.attribution || ''
                 };
             }
 
@@ -472,7 +474,9 @@ const MapModule = (function() {
                 });
             }
         } else if (layer.circleRadius || layer.labelField) {
-            // Styled circles + optional labels (staging areas)
+            // Styled circles + optional labels (staging areas) — sized via zoom interpolation
+            const baseRadius = layer.circleRadius || 14;
+            const baseLabelSize = layer.labelSize || 11;
             map.addLayer({
                 id: pointLayerId,
                 type: 'circle',
@@ -483,9 +487,20 @@ const MapModule = (function() {
                 ],
                 paint: {
                     'circle-color': layer.color,
-                    'circle-radius': layer.circleRadius || 14,
+                    'circle-radius': [
+                        'interpolate', ['linear'], ['zoom'],
+                        8,  Math.max(3, baseRadius * 0.35),
+                        12, Math.max(5, baseRadius * 0.55),
+                        14, baseRadius,
+                        17, baseRadius * 1.25
+                    ],
                     'circle-stroke-color': layer.strokeColor || '#000000',
-                    'circle-stroke-width': layer.strokeWidth != null ? layer.strokeWidth : 2
+                    'circle-stroke-width': [
+                        'interpolate', ['linear'], ['zoom'],
+                        8,  1,
+                        14, layer.strokeWidth != null ? layer.strokeWidth : 2,
+                        17, (layer.strokeWidth != null ? layer.strokeWidth : 2) + 0.5
+                    ]
                 }
             });
             if (layer.labelField) {
@@ -499,7 +514,13 @@ const MapModule = (function() {
                     ],
                     layout: {
                         'text-field': ['get', layer.labelField],
-                        'text-size': layer.labelSize || 11,
+                        'text-size': [
+                            'interpolate', ['linear'], ['zoom'],
+                            10, Math.max(7, baseLabelSize * 0.6),
+                            13, baseLabelSize * 0.85,
+                            14, baseLabelSize,
+                            17, baseLabelSize * 1.25
+                        ],
                         'text-font': ['Noto Sans Bold'],
                         'text-allow-overlap': true
                     },
@@ -900,13 +921,21 @@ const MapModule = (function() {
         if (!map || !TERRAIN) return;
         if (map.getSource('terrain-dem')) return;
 
-        map.addSource('terrain-dem', {
+        const source = {
             type: 'raster-dem',
-            url: getPMTilesUrl(TERRAIN.file),
             tileSize: TERRAIN.tileSize,
             maxzoom: TERRAIN.maxzoom,
             encoding: TERRAIN.encoding
-        });
+        };
+        if (TERRAIN.tiles && TERRAIN.tiles.length) {
+            source.tiles = TERRAIN.tiles;
+            if (TERRAIN.attribution) source.attribution = TERRAIN.attribution;
+        } else if (TERRAIN.file) {
+            source.url = getPMTilesUrl(TERRAIN.file);
+        } else {
+            return;
+        }
+        map.addSource('terrain-dem', source);
     }
 
     /**

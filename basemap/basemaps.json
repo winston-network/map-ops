@@ -3,9 +3,9 @@
     {
       "id": "slc-provo-shaded-topo",
       "name": "Shaded Topo",
-      "file": "Topo_SLC_Provo_10_15_JPG.pmtiles",
+      "file": "CC_shaded_topo.pmtiles",
       "tiles": ["https://services.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}"],
-      "attribution": "Hillshade &copy; Esri",
+      "attribution": "Custom shaded topo (local) / fallback Hillshade &copy; Esri",
       "minzoom": 0,
       "maxzoom": 16,
       "default": true
@@ -13,12 +13,20 @@
     {
       "id": "slc-provo-satellite",
       "name": "Satellite",
-      "file": "Satellite_SLC_Provo_10_15_JPG.pmtiles",
+      "file": "CC_satellite_12_14.pmtiles",
       "tiles": ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"],
-      "attribution": "Tiles &copy; Esri",
+      "attribution": "Custom satellite (local) / fallback Tiles &copy; Esri",
       "minzoom": 0,
       "maxzoom": 19,
       "default": false
     }
-  ]
+  ],
+  "terrain": {
+    "tiles": ["https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"],
+    "encoding": "terrarium",
+    "tileSize": 256,
+    "maxzoom": 14,
+    "exaggeration": 1.4,
+    "attribution": "Terrain &copy; Mapzen / AWS Open Data"
+  }
 }
