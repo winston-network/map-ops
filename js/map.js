@@ -389,6 +389,8 @@ const MapModule = (function() {
      */
     function addLayer(layer) {
         if (!map) return;
+        // Defensive: ensure required style fields exist so missing values don't trip MapLibre.
+        layer = Object.assign({ color: '#7ec8ff' }, layer);
 
         const sourceId = `source-${layer.id}`;
         const pointLayerId = `layer-${layer.id}-points`;
