@@ -36,7 +36,9 @@ const MapModule = (function() {
                     file: bm.file,
                     name: bm.name,
                     minzoom: bm.minzoom || 0,
-                    maxzoom: bm.maxzoom || 19
+                    maxzoom: bm.maxzoom || 19,
+                    tiles: bm.tiles || null,
+                    attribution: bm.attribution || ''
                 };
                 if (bm.default) {
                     activeBasemap = bm.id;
