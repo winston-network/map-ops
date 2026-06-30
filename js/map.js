@@ -103,7 +103,13 @@ const MapModule = (function() {
             });
         });
 
-        return { version: 8, name: 'MAP-OPS Basemaps', sources, layers };
+        return {
+            version: 8,
+            name: 'MAP-OPS Basemaps',
+            glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
+            sources,
+            layers
+        };
     }
 
     // Backwards-compat alias for any old callers.
@@ -494,7 +500,7 @@ const MapModule = (function() {
                     layout: {
                         'text-field': ['get', layer.labelField],
                         'text-size': layer.labelSize || 11,
-                        'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+                        'text-font': ['Noto Sans Bold'],
                         'text-allow-overlap': true
                     },
                     paint: {

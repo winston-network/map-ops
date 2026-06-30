@@ -4,10 +4,10 @@
       "id": "slc-provo-shaded-topo",
       "name": "Shaded Topo",
       "file": "Topo_SLC_Provo_10_15_JPG.pmtiles",
-      "tiles": ["https://a.tile.opentopomap.org/{z}/{x}/{y}.png", "https://b.tile.opentopomap.org/{z}/{x}/{y}.png", "https://c.tile.opentopomap.org/{z}/{x}/{y}.png"],
-      "attribution": "Map data: &copy; OpenStreetMap contributors, SRTM | Map style: &copy; OpenTopoMap (CC-BY-SA)",
+      "tiles": ["https://services.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}"],
+      "attribution": "Hillshade &copy; Esri",
       "minzoom": 0,
-      "maxzoom": 17,
+      "maxzoom": 16,
       "default": true
     },
     {
