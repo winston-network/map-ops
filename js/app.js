@@ -83,7 +83,7 @@ const App = (function() {
             'Closure_Gates': { color: '#f59e0b', name: 'LCC Closure Gates' },    // Orange/Yellow
             'Pad_Locations': { color: '#22c55e', name: 'LCC Gun Pads' },         // Green
             'relevant_polygons': { color: '#f472b6', name: 'Avy Paths', fillOpacity: 0.3, lineOpacity: 0.8, lineWidth: 2 },
-            'UDOT_Gates': { color: '#f59e0b', name: 'Gates', iconImage: 'gate-icon', iconSrc: 'images/icons/New_Gates.png', iconSize: 0.57, iconAnchor: 'bottom' },
+            'UDOT_Gates': { color: '#f59e0b', name: 'Gates', circleRadius: 10, strokeColor: '#000000', strokeWidth: 2 },
             'UDOT_StagingAreas': { name: 'Staging', color: '#ff6600', circleRadius: 14, strokeColor: '#000000', strokeWidth: 2, labelField: 'mile_marker', labelSize: 11, labelColor: '#000000' }
         };
 
@@ -256,6 +256,18 @@ const App = (function() {
         elements.viewModeButtons.forEach(btn => {
             btn.addEventListener('click', () => setViewMode(btn.dataset.mode));
         });
+
+        // Report toggle (hide phone numbers behind a button)
+        const reportToggle = document.getElementById('report-toggle');
+        const reportContacts = document.getElementById('report-contacts');
+        if (reportToggle && reportContacts) {
+            reportToggle.addEventListener('click', () => {
+                const expanded = reportToggle.getAttribute('aria-expanded') === 'true';
+                reportToggle.setAttribute('aria-expanded', String(!expanded));
+                reportContacts.hidden = expanded;
+                reportToggle.textContent = expanded ? 'Show contacts' : 'Hide contacts';
+            });
+        }
 
         // Online/Offline events
         window.addEventListener('online', updateOnlineStatus);
