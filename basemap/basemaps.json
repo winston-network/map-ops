@@ -1,16 +1,16 @@
 {
   "basemaps": [
     {
-      "id": "slc-provo-shaded-topo",
-      "name": "SLC Provo Shaded Topo",
+      "id": "topo",
+      "name": "Shaded Topo (SLC / Provo)",
       "file": "Topo_SLC_Provo_10_15_JPG.pmtiles",
       "minzoom": 10,
       "maxzoom": 15,
       "default": true
     },
     {
-      "id": "slc-provo-satellite",
-      "name": "SLC Provo Satellite",
+      "id": "satellite",
+      "name": "Satellite (SLC / Provo)",
       "file": "Satellite_SLC_Provo_10_15_JPG.pmtiles",
       "minzoom": 10,
       "maxzoom": 15,

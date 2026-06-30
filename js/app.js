@@ -234,6 +234,14 @@ const App = (function() {
         elements.viewModeButtons = document.querySelectorAll('#view-mode-toggle .view-mode-btn');
         elements.loadingOverlay = document.getElementById('loading-overlay');
         elements.toastContainer = document.getElementById('toast-container');
+
+        // Mobile-style toggle bar
+        elements.basemapButtons = document.querySelectorAll('.basemap-btn');
+        elements.layerToggleButtons = document.querySelectorAll('.toggle-btn[data-layer]');
+        elements.avyBtn = document.getElementById('avy-btn');
+        elements.infoBtn = document.getElementById('info-btn');
+        elements.avyReportModal = document.getElementById('avy-report-modal');
+        elements.feedbackModal = document.getElementById('feedback-modal');
     }
 
     /**
@@ -256,6 +264,51 @@ const App = (function() {
         // View mode (2D / 3D) chip
         elements.viewModeButtons.forEach(btn => {
             btn.addEventListener('click', () => setViewMode(btn.dataset.mode));
+        });
+
+        // Top toggle bar — basemap switch
+        elements.basemapButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const target = btn.dataset.basemap;
+                elements.basemapButtons.forEach(b => b.classList.toggle('active', b === btn));
+                if (typeof MapModule.switchBasemap === 'function') {
+                    MapModule.switchBasemap(target);
+                }
+            });
+        });
+
+        // Top toggle bar — layer visibility
+        elements.layerToggleButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const layerId = btn.dataset.layer;
+                const willBeVisible = !btn.classList.contains('active');
+                btn.classList.toggle('active', willBeVisible);
+                MapModule.setLayerVisibility(layerId, willBeVisible);
+                const stateLayer = state.layers.find(l => l.id === layerId);
+                if (stateLayer) stateLayer.visible = willBeVisible;
+            });
+        });
+
+        // Avy! button — open report modal
+        if (elements.avyBtn) {
+            elements.avyBtn.addEventListener('click', () => showModal(elements.avyReportModal));
+        }
+        // Info button — open feedback modal
+        if (elements.infoBtn) {
+            elements.infoBtn.addEventListener('click', () => showModal(elements.feedbackModal));
+        }
+        // Click outside the modal card to close
+        [elements.avyReportModal, elements.feedbackModal].forEach(overlay => {
+            if (!overlay) return;
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) hideModal(overlay);
+            });
+        });
+        // Esc closes any open modal
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                [elements.avyReportModal, elements.feedbackModal].forEach(m => m && hideModal(m));
+            }
         });
 
         // Online/Offline events
@@ -488,6 +541,15 @@ const App = (function() {
         });
     }
 
+    function showModal(overlay) {
+        if (!overlay) return;
+        overlay.classList.remove('hidden');
+    }
+    function hideModal(overlay) {
+        if (!overlay) return;
+        overlay.classList.add('hidden');
+    }
+
     /**
      * Handle feature click
      */
@@ -633,15 +695,14 @@ const App = (function() {
      * Toggle sidebar visibility
      */
     function toggleSidebar() {
-        state.sidebarOpen = !state.sidebarOpen;
-        updateSidebarState();
+        // Sidebar removed in v2.15 redesign — no-op.
     }
 
     /**
      * Update sidebar state
      */
     function updateSidebarState() {
-        elements.sidebar.classList.toggle('open', state.sidebarOpen);
+        // Sidebar removed in v2.15 redesign — no-op.
     }
 
     /**
@@ -681,16 +742,17 @@ const App = (function() {
     function updateOnlineStatus() {
         state.isOnline = navigator.onLine;
         const statusEl = elements.connectionStatus;
+        if (!statusEl) return;
         const textEl = statusEl.querySelector('.status-text');
 
         if (state.isOnline) {
             statusEl.classList.remove('offline');
             statusEl.classList.add('online');
-            textEl.textContent = 'Online';
+            if (textEl) textEl.textContent = 'Online';
         } else {
             statusEl.classList.remove('online');
             statusEl.classList.add('offline');
-            textEl.textContent = 'Offline';
+            if (textEl) textEl.textContent = 'Offline';
         }
     }
 
@@ -736,6 +798,8 @@ const App = (function() {
      * Render layers list
      */
     function renderLayersList() {
+        // Sidebar removed in v2.15 redesign — toggle bar handles layer/basemap UI.
+        if (!elements.layersList) return;
         // First render basemaps section
         const basemaps = MapModule.getBasemaps();
         const activeBasemap = MapModule.getActiveBasemap();

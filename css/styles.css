@@ -2,7 +2,7 @@
    Offline Map App - Modern Responsive Styles
    ======================================== */
 
-/* CSS Variables */
+/* CSS Variables — mobile parity (#1a1a2e family) */
 :root {
     /* Colors */
     --primary: #4f46e5;
@@ -13,18 +13,25 @@
     --warning: #f59e0b;
     --danger: #ef4444;
 
-    /* Dark Theme */
-    --bg-primary: #0f172a;
-    --bg-secondary: #1e293b;
-    --bg-tertiary: #334155;
+    /* Mobile navy palette */
+    --bg-primary: #1a1a2e;       /* deep navy (header, body) */
+    --bg-secondary: #252542;     /* toggle bar */
+    --bg-tertiary: #333355;      /* active toggle button */
+    --bg-elev: #444466;          /* basemap active */
     --text-primary: #f8fafc;
-    --text-secondary: #94a3b8;
-    --text-muted: #64748b;
-    --border-color: #334155;
+    --text-secondary: #cccccc;
+    --text-muted: #888888;
+    --border-color: rgba(255, 255, 255, 0.08);
+
+    /* Brand accents */
+    --title-blue: #7ec8ff;       /* glowing title */
+    --title-glow: rgba(126, 200, 255, 0.8);
+    --subtitle-orange: #f97316;
+    --avy-red: #ef4444;
 
     /* Spacing */
-    --header-height: 56px;
-    --sidebar-width: 320px;
+    --header-height: 64px;
+    --toggle-bar-height: 48px;
     --control-size: 44px;
     --spacing-xs: 4px;
     --spacing-sm: 8px;
@@ -79,23 +86,146 @@ body {
     height: 100dvh;
 }
 
-/* Header */
+/* === Mobile-style Header === */
 .app-header {
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
     height: var(--header-height);
-    background: var(--bg-secondary);
-    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-primary);
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 0 var(--spacing-md);
-    z-index: 1000;
-    backdrop-filter: blur(10px);
+    padding: 0 16px;
+    gap: 10px;
+    z-index: 1001;
 }
+.app-logo {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    flex-shrink: 0;
+}
+.header-text { flex: 1; min-width: 0; }
+.app-title {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    color: var(--title-blue);
+    text-shadow: 0 0 10px var(--title-glow);
+    line-height: 1.05;
+}
+.subtitle-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-top: 1px;
+}
+.app-subtitle {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--subtitle-orange);
+    text-shadow: 0 0 6px rgba(249, 115, 22, 0.6);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.version-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+.version-display { font-size: 10px; color: var(--text-muted); }
+.info-btn {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 1px solid var(--text-muted);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 10px;
+    font-weight: 700;
+    font-style: italic;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+.info-btn:hover { color: var(--text-primary); border-color: var(--text-primary); }
 
+/* === Toggle Bar === */
+.toggle-bar {
+    position: fixed;
+    top: var(--header-height);
+    left: 0;
+    right: 0;
+    height: var(--toggle-bar-height);
+    background: var(--bg-secondary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 12px;
+    z-index: 1000;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+.basemap-toggle {
+    display: flex;
+    background: var(--bg-primary);
+    border-radius: 16px;
+    margin-right: 8px;
+}
+.basemap-btn {
+    padding: 6px 10px;
+    border-radius: 16px;
+    border: none;
+    background: transparent;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.basemap-btn.active { background: var(--bg-elev); }
+
+.toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+    background: var(--bg-primary);
+    border: none;
+    border-radius: 16px;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 600;
+    opacity: 0.5;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.toggle-btn.active { opacity: 1; background: var(--bg-tertiary); }
+.toggle-rect {
+    display: inline-block;
+    width: 14px;
+    height: 10px;
+    border-radius: 2px;
+}
+.toggle-circle {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+}
+.toggle-icon { width: 16px; height: 16px; }
+.toggle-btn .avy-icon {
+    color: var(--avy-red);
+    font-weight: 700;
+}
+.toggle-btn.avy-btn { opacity: 1; }
+
+/* === Legacy header-left preserved for any sidebar logic that survived === */
 .header-left {
     display: flex;
     align-items: center;
@@ -649,16 +779,12 @@ body {
 /* Map Container */
 .map-container {
     position: fixed;
-    top: var(--header-height);
+    top: calc(var(--header-height) + var(--toggle-bar-height));
     left: 0;
     right: 0;
     bottom: 0;
-    transition: left var(--transition-normal);
 }
-
-.sidebar.open ~ .map-container {
-    left: var(--sidebar-width);
-}
+.sidebar { display: none !important; }
 
 #map {
     width: 100%;
@@ -775,22 +901,20 @@ body {
     text-decoration: underline;
 }
 
-/* Disclaimer */
+/* Disclaimer — bottom-centered red text, mobile-style */
 .app-disclaimer {
     position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-    bottom: var(--spacing-sm);
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: #ef4444;
-    background: rgba(0, 0, 0, 0.7);
-    padding: 4px 12px;
-    border-radius: var(--radius-sm);
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 6px 12px;
+    text-align: center;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--avy-red);
+    background: rgba(26, 26, 46, 0.85);
     z-index: 100;
-    white-space: nowrap;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    pointer-events: none;
 }
 
 /* Feature Popup */
@@ -1098,4 +1222,142 @@ body {
 
 .maplibregl-popup-tip {
     border-top-color: var(--bg-secondary) !important;
+}
+
+/* === Feature Popup polish (avalanche-path detail card look) === */
+.feature-popup {
+    background: rgba(26, 26, 46, 0.96);
+    border: 1px solid rgba(126, 200, 255, 0.18);
+}
+.popup-header {
+    background: transparent;
+    border-bottom: none;
+    padding: 10px 12px 4px;
+}
+.popup-header h4 {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--title-blue);
+    text-transform: uppercase;
+}
+.popup-content {
+    padding: 0 12px 12px;
+    color: #ffffff;
+}
+.popup-content .property-row {
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.popup-content .property-key {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    letter-spacing: 0.04em;
+}
+.popup-content .property-value {
+    font-size: 0.85rem;
+    color: #ffffff;
+}
+
+/* === Modals (Avy Report + Feedback) === */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(2px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    padding: 20px;
+}
+.modal-overlay.hidden { display: none; }
+.modal {
+    background: var(--bg-primary);
+    border: 1px solid rgba(126, 200, 255, 0.2);
+    border-radius: 14px;
+    padding: 24px 22px 18px;
+    max-width: 380px;
+    width: 100%;
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.5);
+    color: #ffffff;
+    text-align: center;
+}
+.modal-header {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--title-blue);
+    margin-bottom: 16px;
+    line-height: 1.35;
+}
+.modal-body {
+    font-size: 0.88rem;
+    color: var(--text-secondary);
+    margin-bottom: 18px;
+    line-height: 1.45;
+}
+.modal-hint {
+    margin-top: 14px;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    letter-spacing: 0.04em;
+}
+.modal-cta {
+    display: inline-block;
+    padding: 10px 24px;
+    background: var(--subtitle-orange);
+    color: #ffffff;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 0.9rem;
+    border-radius: 8px;
+}
+.modal-cta:hover { background: #ea580c; }
+
+.report-row {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    text-align: left;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.report-row:last-of-type { border-bottom: none; }
+.report-label {
+    flex-shrink: 0;
+    min-width: 50px;
+    font-weight: 700;
+    font-size: 0.78rem;
+    color: var(--subtitle-orange);
+    letter-spacing: 0.04em;
+}
+.report-row a {
+    color: #ffffff;
+    text-decoration: none;
+    font-size: 0.85rem;
+}
+.report-row a:hover { color: var(--title-blue); }
+
+/* === 2D / 3D chip inside map controls (vertical stack) === */
+.map-controls .view-mode-toggle {
+    display: flex;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    padding: 2px;
+    margin-top: 4px;
+}
+.map-controls .view-mode-btn {
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    border-radius: 6px;
+    cursor: pointer;
+}
+.map-controls .view-mode-btn.active {
+    background: var(--bg-tertiary);
+    color: #ffffff;
 }
