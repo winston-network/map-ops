@@ -38,7 +38,9 @@ const MapModule = (function() {
                     minzoom: bm.minzoom || 0,
                     maxzoom: bm.maxzoom || 19,
                     tiles: bm.tiles || null,
-                    attribution: bm.attribution || ''
+                    attribution: bm.attribution || '',
+                    overlayTiles: bm.overlayTiles || null,
+                    overlayAttribution: bm.overlayAttribution || ''
                 };
                 if (bm.default) {
                     activeBasemap = bm.id;
@@ -90,6 +92,7 @@ const MapModule = (function() {
             const basemap = BASEMAPS[id];
             const sourceId = `${id}-tiles`;
             const usePmtiles = (pmtilesAvailability || {})[id] === true && basemap.file;
+            const isActive = id === activeBasemap;
 
             sources[sourceId] = usePmtiles
                 ? { type: 'raster', url: getPMTilesUrl(basemap.file), tileSize: 256 }
@@ -101,8 +104,27 @@ const MapModule = (function() {
                 source: sourceId,
                 minzoom: basemap.minzoom || 0,
                 maxzoom: basemap.maxzoom || 19,
-                layout: { 'visibility': id === activeBasemap ? 'visible' : 'none' }
+                layout: { 'visibility': isActive ? 'visible' : 'none' }
             });
+
+            // Optional reference-label overlay (e.g. satellite hybrid).
+            if (basemap.overlayTiles && basemap.overlayTiles.length) {
+                const overlaySourceId = `${id}-overlay`;
+                sources[overlaySourceId] = {
+                    type: 'raster',
+                    tiles: basemap.overlayTiles,
+                    tileSize: 256,
+                    attribution: basemap.overlayAttribution || ''
+                };
+                layers.push({
+                    id: `${id}-overlay-layer`,
+                    type: 'raster',
+                    source: overlaySourceId,
+                    minzoom: basemap.minzoom || 0,
+                    maxzoom: basemap.maxzoom || 19,
+                    layout: { 'visibility': isActive ? 'visible' : 'none' }
+                });
+            }
         });
 
         return {
@@ -201,10 +223,10 @@ const MapModule = (function() {
     function setBasemapVisibility(basemapId, visible) {
         if (!map) return;
 
-        const layerId = `${basemapId}-layer`;
-        if (map.getLayer(layerId)) {
-            map.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none');
-        }
+        const vis = visible ? 'visible' : 'none';
+        [`${basemapId}-layer`, `${basemapId}-overlay-layer`].forEach(id => {
+            if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', vis);
+        });
     }
 
     /**
