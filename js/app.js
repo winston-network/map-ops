@@ -83,7 +83,6 @@ const App = (function() {
             'Closure_Gates': { color: '#f59e0b', name: 'LCC Closure Gates' },    // Orange/Yellow
             'Pad_Locations': { color: '#22c55e', name: 'LCC Gun Pads' },         // Green
             'relevant_polygons': { color: '#f472b6', name: 'Avy Paths', fillOpacity: 0.3, lineOpacity: 0.8, lineWidth: 2 },
-            'BCC_AvyPaths': { color: '#f472b6', name: 'BCC Avy Paths', fillOpacity: 0.3, lineOpacity: 0.8, lineWidth: 2 },
             'UDOT_Gates': { color: '#f59e0b', name: 'Gates', iconImage: 'gate-icon', iconSrc: 'images/icons/New_Gates.png', iconSize: 0.57, iconAnchor: 'bottom' },
             'UDOT_StagingAreas': { name: 'Staging', color: '#ff6600', circleRadius: 14, strokeColor: '#000000', strokeWidth: 2, labelField: 'mile_marker', labelSize: 11, labelColor: '#000000' }
         };
@@ -521,11 +520,10 @@ const App = (function() {
 
         let title, html;
 
-        if (baseName === 'relevant_polygons' || baseName === 'BCC_AvyPaths') {
+        if (baseName === 'relevant_polygons') {
             // Avalanche path: name + metadata block (Aspect / Start Zone / Vertical / Runout / Size / Frequency)
-            // BCC paths use title/description for the name and often have no metadata
             title = 'Avalanche Path';
-            const name = properties.name || properties.title || properties.description || 'Unknown Path';
+            const name = properties.name || 'Unknown Path';
             const fields = [
                 ['Aspect', properties.starting_1],
                 ['Start Zone', properties.starting_z],
