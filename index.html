@@ -23,13 +23,6 @@
         <!-- Header -->
         <header class="app-header">
             <div class="header-left">
-                <button id="menu-toggle" class="menu-toggle" type="button" aria-label="Toggle layers panel">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="3" y1="6" x2="21" y2="6"></line>
-                        <line x1="3" y1="12" x2="21" y2="12"></line>
-                        <line x1="3" y1="18" x2="21" y2="18"></line>
-                    </svg>
-                </button>
                 <img src="images/app-icon.png" alt="MAP-OPS" class="app-logo">
                 <div class="app-title-group">
                     <h1 class="app-title">MAP-OPS</h1>
@@ -37,6 +30,10 @@
                 </div>
             </div>
             <div class="header-right">
+                <div id="basemap-toggle" class="view-mode-toggle" role="group" aria-label="Basemap">
+                    <button type="button" class="view-mode-btn active" data-basemap-id="slc-provo-shaded-topo" aria-pressed="true">Topo</button>
+                    <button type="button" class="view-mode-btn" data-basemap-id="slc-provo-satellite" aria-pressed="false">Sat</button>
+                </div>
                 <div id="view-mode-toggle" class="view-mode-toggle" role="group" aria-label="View mode">
                     <button type="button" class="view-mode-btn active" data-mode="2d" aria-pressed="true">2D</button>
                     <button type="button" class="view-mode-btn" data-mode="3d" aria-pressed="false">3D</button>
@@ -110,6 +107,15 @@
         <!-- Main Map Container -->
         <main class="map-container">
             <div id="map"></div>
+
+            <!-- Floating hamburger (mobile only) — toggles the layers sidebar -->
+            <button id="menu-toggle" class="control-btn menu-toggle-floating" type="button" aria-label="Toggle layers panel">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="3" y1="6" x2="21" y2="6"></line>
+                    <line x1="3" y1="12" x2="21" y2="12"></line>
+                    <line x1="3" y1="18" x2="21" y2="18"></line>
+                </svg>
+            </button>
 
             <!-- Map Controls -->
             <div class="map-controls">

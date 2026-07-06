@@ -248,6 +248,7 @@ const App = (function() {
         elements.popupContent = document.getElementById('popup-content');
         elements.popupClose = document.getElementById('popup-close');
         elements.viewModeButtons = document.querySelectorAll('#view-mode-toggle .view-mode-btn');
+        elements.basemapButtons = document.querySelectorAll('#basemap-toggle .view-mode-btn');
         elements.loadingOverlay = document.getElementById('loading-overlay');
         elements.toastContainer = document.getElementById('toast-container');
     }
@@ -280,6 +281,16 @@ const App = (function() {
         // View mode (2D / 3D) chip
         elements.viewModeButtons.forEach(btn => {
             btn.addEventListener('click', () => setViewMode(btn.dataset.mode));
+        });
+
+        // Header basemap toggle (Topo | Sat)
+        elements.basemapButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = btn.dataset.basemapId;
+                MapModule.switchBasemap(id);
+                syncBasemapToggle(id);
+                renderLayersList(); // reflect active basemap in sidebar list
+            });
         });
 
         // Report toggle (hide phone numbers behind a button)
@@ -324,17 +335,25 @@ const App = (function() {
     function handleMapLoaded() {
         MapModule.updateScaleBar();
 
-        // Add saved layers to map (small delay ensures basemap is fully rendered)
-        setTimeout(() => {
-            state.layers.forEach(layer => {
-                MapModule.addLayer(layer);
-            });
+        const map = MapModule.getMap();
+        // Wait for the basemap style to fully settle (network + parsing) before
+        // stacking our GeoJSON layers on top. Otherwise MapLibre sometimes needs a
+        // manual repaint before the fill layer becomes visible.
+        const addAllLayers = () => {
+            state.layers.forEach(layer => MapModule.addLayer(layer));
+            if (state.initialBounds) MapModule.fitBounds(state.initialBounds);
+            // Force a paint pass so features show without needing a manual toggle.
+            if (map) map.triggerRepaint();
+        };
 
-            // Fit to bounds if available
-            if (state.initialBounds) {
-                MapModule.fitBounds(state.initialBounds);
-            }
-        }, 100);
+        if (map && map.isStyleLoaded()) {
+            addAllLayers();
+        } else if (map) {
+            map.once('idle', addAllLayers);
+        }
+
+        // Reflect the default active basemap in the header chip
+        syncBasemapToggle(MapModule.getActiveBasemap());
     }
 
     /**
@@ -519,6 +538,19 @@ const App = (function() {
         MapModule.setViewMode(mode);
         elements.viewModeButtons.forEach(btn => {
             const isActive = btn.dataset.mode === mode;
+            btn.classList.toggle('active', isActive);
+            btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        });
+    }
+
+    /**
+     * Keep the header basemap toggle chip in sync with the active basemap
+     * (whether it was switched from the header, the sidebar list, or programmatically).
+     */
+    function syncBasemapToggle(activeId) {
+        if (!elements.basemapButtons) return;
+        elements.basemapButtons.forEach(btn => {
+            const isActive = btn.dataset.basemapId === activeId;
             btn.classList.toggle('active', isActive);
             btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
         });
@@ -829,6 +861,7 @@ const App = (function() {
             item.addEventListener('click', () => {
                 const basemapId = item.dataset.basemapId;
                 MapModule.switchBasemap(basemapId);
+                syncBasemapToggle(basemapId);
                 renderLayersList(); // Re-render to update active state
             });
         });

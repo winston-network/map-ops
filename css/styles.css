@@ -163,6 +163,12 @@ body {
         height: 24px;
         max-width: 40px;
     }
+    /* Header is tight with 2 toggles + title -- drop the subtitle */
+    .app-subtitle { display: none; }
+    .app-title { font-size: 1.15rem; letter-spacing: 0.08em; }
+    .app-logo { width: 30px; height: 30px; }
+    .header-right { gap: var(--spacing-sm); }
+    .view-mode-btn { padding: 3px 8px; font-size: 0.68rem; }
 }
 
 /* View Mode Toggle (2D / 3D) */
@@ -1057,27 +1063,27 @@ body {
     .menu-toggle { display: none; }
 }
 
-/* Hamburger menu button (mobile) */
-.menu-toggle {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 40px;
-    height: 40px;
-    padding: 0;
-    background: transparent;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: var(--radius-sm);
-    color: var(--text-primary);
-    cursor: pointer;
-    margin-right: var(--spacing-sm);
-    flex-shrink: 0;
-    transition: background 0.15s ease;
+/* Floating hamburger — top-left of the map, mobile only.
+ * Reuses .control-btn styling but sits opposite the other controls. */
+.menu-toggle-floating {
+    position: absolute;
+    top: var(--spacing-md);
+    left: var(--spacing-md);
+    z-index: 700;
 }
-.menu-toggle:hover { background: rgba(255, 255, 255, 0.08); }
-.menu-toggle:active { background: rgba(255, 255, 255, 0.15); }
-.menu-toggle svg { width: 22px; height: 22px; }
-.menu-toggle.is-open { background: rgba(255, 255, 255, 0.12); }
+.menu-toggle-floating.is-open {
+    background: rgba(255, 255, 255, 0.15);
+}
+@media (min-width: 1024px) {
+    /* Sidebar's always visible on desktop -> no need for the floating menu. */
+    .menu-toggle-floating { display: none !important; }
+}
+@media (max-width: 768px) {
+    .menu-toggle-floating {
+        top: var(--spacing-sm);
+        left: var(--spacing-sm);
+    }
+}
 
 /* Full-height, sliding sidebar on mobile: dim the map area behind it */
 .sidebar-backdrop {
