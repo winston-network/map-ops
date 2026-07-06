@@ -100,7 +100,7 @@ const App = (function() {
                 ]
             },
             'UDOT_Gates': { color: '#f59e0b', name: 'Gates', iconImage: 'gate-icon', iconSrc: 'images/icons/New_Gates.png', iconSize: 0.57, iconAnchor: 'bottom' },
-            'UDOT_StagingAreas': { name: 'Staging', color: '#ff6600', circleRadius: 14, strokeColor: '#000000', strokeWidth: 2, labelField: 'mile_marker', labelSize: 11, labelColor: '#000000' }
+            'UDOT_StagingAreas': { name: 'Staging Mile Marker', color: '#ff6600', circleRadius: 14, strokeColor: '#000000', strokeWidth: 2, labelField: 'mile_marker', labelSize: 11, labelColor: '#000000' }
         };
 
         // Load icons config

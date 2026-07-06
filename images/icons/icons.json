@@ -2,12 +2,6 @@
     "defaultSize": 32,
     "icons": [
         {
-            "layer": "UDOT_StagingAreas",
-            "file": "UDOT_StagingAreas.png",
-            "size": 2,
-            "attribution": "Gate icons created by Backwoods - Flaticon"
-        },
-        {
             "layer": "UDOT_Gates",
             "file": "UDOT_Gates.png",
             "size": 3,
