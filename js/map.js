@@ -32,6 +32,17 @@ const MapModule = (function() {
             // Convert array to object keyed by id
             BASEMAPS = {};
             data.basemaps.forEach(bm => {
+                // Normalize overlays: prefer `overlays` array; fall back to legacy
+                // `overlayTiles` + `overlayAttribution` single-overlay form.
+                let overlays = [];
+                if (Array.isArray(bm.overlays)) {
+                    overlays = bm.overlays
+                        .filter(o => o && Array.isArray(o.tiles) && o.tiles.length)
+                        .map(o => ({ tiles: o.tiles, attribution: o.attribution || '' }));
+                } else if (bm.overlayTiles && bm.overlayTiles.length) {
+                    overlays = [{ tiles: bm.overlayTiles, attribution: bm.overlayAttribution || '' }];
+                }
+
                 BASEMAPS[bm.id] = {
                     file: bm.file,
                     name: bm.name,
@@ -39,8 +50,7 @@ const MapModule = (function() {
                     maxzoom: bm.maxzoom || 19,
                     tiles: bm.tiles || null,
                     attribution: bm.attribution || '',
-                    overlayTiles: bm.overlayTiles || null,
-                    overlayAttribution: bm.overlayAttribution || ''
+                    overlays: overlays
                 };
                 if (bm.default) {
                     activeBasemap = bm.id;
@@ -107,24 +117,25 @@ const MapModule = (function() {
                 layout: { 'visibility': isActive ? 'visible' : 'none' }
             });
 
-            // Optional reference-label overlay (e.g. satellite hybrid).
-            if (basemap.overlayTiles && basemap.overlayTiles.length) {
-                const overlaySourceId = `${id}-overlay`;
+            // Optional overlays (roads, labels, boundaries — one raster layer each).
+            (basemap.overlays || []).forEach((ov, idx) => {
+                if (!ov.tiles || !ov.tiles.length) return;
+                const overlaySourceId = `${id}-overlay-${idx}`;
                 sources[overlaySourceId] = {
                     type: 'raster',
-                    tiles: basemap.overlayTiles,
+                    tiles: ov.tiles,
                     tileSize: 256,
-                    attribution: basemap.overlayAttribution || ''
+                    attribution: ov.attribution || ''
                 };
                 layers.push({
-                    id: `${id}-overlay-layer`,
+                    id: `${id}-overlay-${idx}-layer`,
                     type: 'raster',
                     source: overlaySourceId,
                     minzoom: basemap.minzoom || 0,
                     maxzoom: basemap.maxzoom || 19,
                     layout: { 'visibility': isActive ? 'visible' : 'none' }
                 });
-            }
+            });
         });
 
         return {
@@ -224,9 +235,20 @@ const MapModule = (function() {
         if (!map) return;
 
         const vis = visible ? 'visible' : 'none';
-        [`${basemapId}-layer`, `${basemapId}-overlay-layer`].forEach(id => {
-            if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', vis);
-        });
+        // Base layer
+        if (map.getLayer(`${basemapId}-layer`)) {
+            map.setLayoutProperty(`${basemapId}-layer`, 'visibility', vis);
+        }
+        // Any overlays (there can be 0..n; iterate until getLayer returns nothing)
+        for (let idx = 0; idx < 8; idx++) {
+            const overlayLayerId = `${basemapId}-overlay-${idx}-layer`;
+            if (!map.getLayer(overlayLayerId)) break;
+            map.setLayoutProperty(overlayLayerId, 'visibility', vis);
+        }
+        // Legacy single-overlay id
+        if (map.getLayer(`${basemapId}-overlay-layer`)) {
+            map.setLayoutProperty(`${basemapId}-overlay-layer`, 'visibility', vis);
+        }
     }
 
     /**

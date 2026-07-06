@@ -6,6 +6,20 @@
       "file": "CC_shaded_topo.pmtiles",
       "tiles": ["https://services.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}"],
       "attribution": "Custom shaded topo (local) / fallback Hillshade &copy; Esri",
+      "overlays": [
+        {
+          "tiles": ["https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}"],
+          "attribution": "Roads &copy; Esri"
+        },
+        {
+          "tiles": [
+            "https://a.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}.png",
+            "https://b.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}.png",
+            "https://c.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}.png"
+          ],
+          "attribution": "Labels &copy; CartoDB / OpenStreetMap"
+        }
+      ],
       "minzoom": 0,
       "maxzoom": 16,
       "default": true
@@ -16,12 +30,20 @@
       "file": "CC_satellite_12_14.pmtiles",
       "tiles": ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"],
       "attribution": "Custom satellite (local) / fallback Tiles &copy; Esri",
-      "overlayTiles": [
-        "https://a.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}.png",
-        "https://b.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}.png",
-        "https://c.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}.png"
+      "overlays": [
+        {
+          "tiles": ["https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}"],
+          "attribution": "Roads &copy; Esri"
+        },
+        {
+          "tiles": [
+            "https://a.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}.png",
+            "https://b.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}.png",
+            "https://c.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}.png"
+          ],
+          "attribution": "Labels &copy; CartoDB / OpenStreetMap"
+        }
       ],
-      "overlayAttribution": "Labels &copy; CartoDB / OpenStreetMap",
       "minzoom": 0,
       "maxzoom": 19,
       "default": false
