@@ -1052,6 +1052,44 @@ body {
     .map-container {
         left: var(--sidebar-width);
     }
+
+    /* Sidebar always visible on desktop -> menu button not needed */
+    .menu-toggle { display: none; }
+}
+
+/* Hamburger menu button (mobile) */
+.menu-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    cursor: pointer;
+    margin-right: var(--spacing-sm);
+    flex-shrink: 0;
+    transition: background 0.15s ease;
+}
+.menu-toggle:hover { background: rgba(255, 255, 255, 0.08); }
+.menu-toggle:active { background: rgba(255, 255, 255, 0.15); }
+.menu-toggle svg { width: 22px; height: 22px; }
+.menu-toggle.is-open { background: rgba(255, 255, 255, 0.12); }
+
+/* Full-height, sliding sidebar on mobile: dim the map area behind it */
+.sidebar-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 800;
+}
+.sidebar.open ~ .sidebar-backdrop { display: block; }
+@media (min-width: 1024px) {
+    .sidebar-backdrop { display: none !important; }
 }
 
 /* Custom Scrollbar */

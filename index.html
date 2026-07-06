@@ -23,6 +23,13 @@
         <!-- Header -->
         <header class="app-header">
             <div class="header-left">
+                <button id="menu-toggle" class="menu-toggle" type="button" aria-label="Toggle layers panel">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                        <line x1="3" y1="12" x2="21" y2="12"></line>
+                        <line x1="3" y1="18" x2="21" y2="18"></line>
+                    </svg>
+                </button>
                 <img src="images/app-icon.png" alt="MAP-OPS" class="app-logo">
                 <div class="app-title-group">
                     <h1 class="app-title">MAP-OPS</h1>
@@ -96,6 +103,9 @@
 
             </div>
         </aside>
+
+        <!-- Backdrop shown behind the sidebar drawer on mobile -->
+        <div id="sidebar-backdrop" class="sidebar-backdrop" aria-hidden="true"></div>
 
         <!-- Main Map Container -->
         <main class="map-container">

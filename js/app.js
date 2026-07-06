@@ -233,6 +233,7 @@ const App = (function() {
     function cacheElements() {
         elements.menuToggle = document.getElementById('menu-toggle');
         elements.sidebar = document.getElementById('sidebar');
+        elements.sidebarBackdrop = document.getElementById('sidebar-backdrop');
         elements.layersList = document.getElementById('layers-list');
         elements.locateBtn = document.getElementById('locate-btn');
         elements.zoomInBtn = document.getElementById('zoom-in-btn');
@@ -256,8 +257,16 @@ const App = (function() {
      */
     function setupEventListeners() {
         // Menu toggle
-        // Menu toggle removed - sidebar always visible
-        // elements.menuToggle.addEventListener('click', toggleSidebar);
+        // Hamburger menu toggle (visible on mobile only via CSS)
+        if (elements.menuToggle) {
+            elements.menuToggle.addEventListener('click', toggleSidebar);
+        }
+        // Tap the backdrop to close the sidebar drawer
+        if (elements.sidebarBackdrop) {
+            elements.sidebarBackdrop.addEventListener('click', () => {
+                if (state.sidebarOpen) toggleSidebar();
+            });
+        }
 
         // Map controls
         elements.locateBtn.addEventListener('click', handleLocate);
@@ -669,7 +678,12 @@ const App = (function() {
      * Update sidebar state
      */
     function updateSidebarState() {
+        if (!elements.sidebar) return;
         elements.sidebar.classList.toggle('open', state.sidebarOpen);
+        if (elements.menuToggle) {
+            elements.menuToggle.classList.toggle('is-open', state.sidebarOpen);
+            elements.menuToggle.setAttribute('aria-expanded', state.sidebarOpen ? 'true' : 'false');
+        }
     }
 
     /**
