@@ -418,15 +418,22 @@ const MapModule = (function() {
             data: layer.data
         });
 
+        // Base polygon geometry filter; combined with optional layer.polygonFilter
+        // for property-based hiding (e.g. drop features with all-null metadata).
+        const polyGeomFilter = ['any',
+            ['==', ['geometry-type'], 'Polygon'],
+            ['==', ['geometry-type'], 'MultiPolygon']
+        ];
+        const polyFilter = layer.polygonFilter
+            ? ['all', polyGeomFilter, layer.polygonFilter]
+            : polyGeomFilter;
+
         // Add polygon layer
         map.addLayer({
             id: polygonLayerId,
             type: 'fill',
             source: sourceId,
-            filter: ['any',
-                ['==', ['geometry-type'], 'Polygon'],
-                ['==', ['geometry-type'], 'MultiPolygon']
-            ],
+            filter: polyFilter,
             paint: {
                 'fill-color': layer.color,
                 'fill-opacity': layer.fillOpacity != null ? layer.fillOpacity : 0.3
@@ -438,10 +445,7 @@ const MapModule = (function() {
             id: `${polygonLayerId}-outline`,
             type: 'line',
             source: sourceId,
-            filter: ['any',
-                ['==', ['geometry-type'], 'Polygon'],
-                ['==', ['geometry-type'], 'MultiPolygon']
-            ],
+            filter: polyFilter,
             paint: {
                 'line-color': layer.color,
                 'line-width': layer.lineWidth != null ? layer.lineWidth : 2,
