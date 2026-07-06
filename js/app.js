@@ -336,21 +336,34 @@ const App = (function() {
         MapModule.updateScaleBar();
 
         const map = MapModule.getMap();
-        // Wait for the basemap style to fully settle (network + parsing) before
-        // stacking our GeoJSON layers on top. Otherwise MapLibre sometimes needs a
-        // manual repaint before the fill layer becomes visible.
+
+        const nudgeVisibility = () => {
+            // Mobile MapLibre sometimes queues layer adds but doesn't paint the fill
+            // until visibility changes. Toggle each layer off->on right after adding
+            // to force a fresh evaluation. Same effect as the user manually toggling
+            // the checkbox but automatic. Very cheap.
+            state.layers.forEach(layer => {
+                MapModule.setLayerVisibility(layer.id, false);
+            });
+            requestAnimationFrame(() => {
+                state.layers.forEach(layer => {
+                    MapModule.setLayerVisibility(layer.id, layer.visible !== false);
+                });
+                if (map) map.triggerRepaint();
+            });
+        };
+
         const addAllLayers = () => {
             state.layers.forEach(layer => MapModule.addLayer(layer));
             if (state.initialBounds) MapModule.fitBounds(state.initialBounds);
-            // Force a paint pass so features show without needing a manual toggle.
             if (map) map.triggerRepaint();
+            nudgeVisibility();
         };
 
-        if (map && map.isStyleLoaded()) {
-            addAllLayers();
-        } else if (map) {
-            map.once('idle', addAllLayers);
-        }
+        // Always wait for the map to be idle (all initial basemap tiles fetched
+        // + parsed) before stacking GeoJSON layers on top. This is more reliable
+        // on mobile than checking isStyleLoaded() on the 'load' event alone.
+        if (map) map.once('idle', addAllLayers);
 
         // Reflect the default active basemap in the header chip
         syncBasemapToggle(MapModule.getActiveBasemap());
