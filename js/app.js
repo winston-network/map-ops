@@ -88,15 +88,21 @@ const App = (function() {
                 fillOpacity: 0.3,
                 lineOpacity: 0.8,
                 lineWidth: 2,
-                // Hide features with all avy metadata fields null (matches mobile).
-                // Toggle off by setting to null; source data is untouched.
+                // Hide features with all avy metadata fields null, except for a
+                // named allow-list of Provo-area paths that lack stats but should
+                // still render. Toggle off by setting to null; source data untouched.
                 polygonFilter: ['any',
                     ['!=', ['get', 'starting_1'], null],
                     ['!=', ['get', 'starting_z'], null],
                     ['!=', ['get', 'vertical_f'], null],
                     ['!=', ['get', 'distance_t'], null],
                     ['!=', ['get', 'size_of_sl'], null],
-                    ['!=', ['get', 'return_int'], null]
+                    ['!=', ['get', 'return_int'], null],
+                    ['in', ['get', 'name'], ['literal', [
+                        'ACORN', 'ALLDRED DRAW', 'BRIDAL VEIL', 'CASCADE CHUTES',
+                        'COUNTY LINE', 'DAVIS CANYON', 'DEER CREEK CUT',
+                        'LOWER DEER CREEK', 'UPPER DEER CREEK'
+                    ]]]
                 ]
             },
             'UDOT_Gates': { color: '#f59e0b', name: 'Gates', iconImage: 'gate-icon', iconSrc: 'images/icons/New_Gates.png', iconSize: 0.57, iconAnchor: 'bottom' },
@@ -806,8 +812,9 @@ const App = (function() {
             if (layer.icon && layer.icon.url) {
                 return `<img src="${layer.icon.url}" class="legend-icon" alt="">`;
             }
-            // Circle marker for points without icon
-            return `<span class="legend-point" style="background-color: ${layer.color}; border-color: #fff;"></span>`;
+            // Circle marker for points without icon — match the map's stroke color when set
+            const strokeColor = layer.strokeColor || '#fff';
+            return `<span class="legend-point" style="background-color: ${layer.color}; border-color: ${strokeColor};"></span>`;
         } else if (geomType === 'polygon') {
             // Rectangle with fill and stroke
             return `<span class="legend-polygon" style="background-color: ${layer.color}30; border-color: ${layer.color};"></span>`;
@@ -852,16 +859,15 @@ const App = (function() {
                 const geomType = getLayerGeometryType(layer);
                 const legendHtml = buildLegendHtml(layer, geomType);
 
+                const eyeOpen = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+                const eyeOff = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
+
                 return `
                 <div class="layer-item ${layer.visible ? 'active' : ''}" data-layer-id="${layer.id}">
-                    <div class="layer-checkbox"></div>
-                    <span class="layer-name" title="${layer.name}">${layer.name}</span>
                     <span class="layer-legend">${legendHtml}</span>
-                    <button class="layer-delete" title="Remove layer" data-action="delete">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="3 6 5 6 21 6"></polyline>
-                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                        </svg>
+                    <span class="layer-name" title="${layer.name}">${layer.name}</span>
+                    <button class="layer-visibility" data-action="toggle-visibility" title="${layer.visible ? 'Hide layer' : 'Show layer'}">
+                        ${layer.visible ? eyeOpen : eyeOff}
                     </button>
                 </div>
             `}).join('');

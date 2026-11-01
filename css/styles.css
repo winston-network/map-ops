@@ -506,33 +506,64 @@ body {
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+}
+
+.layer-item:not(.active) .layer-legend {
+    opacity: 0.35;
+}
+
+.layer-visibility {
     margin-left: auto;
+    padding: 4px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    transition: all var(--transition-fast);
+}
+
+.layer-visibility svg {
+    width: 20px;
+    height: 20px;
+    display: block;
+}
+
+.layer-item.active .layer-visibility {
+    color: #7ec8ff;
+}
+
+.layer-visibility:hover {
+    background: rgba(120, 200, 255, 0.15);
+    color: #7ec8ff;
 }
 
 .legend-icon {
-    width: 18px;
-    height: 18px;
+    width: 28px;
+    height: 28px;
     object-fit: contain;
 }
 
 .legend-point {
-    width: 10px;
-    height: 10px;
+    width: 18px;
+    height: 18px;
     border-radius: 50%;
     border: 2px solid #fff;
 }
 
 .legend-polygon {
-    width: 16px;
-    height: 12px;
+    width: 24px;
+    height: 18px;
     border: 2px solid;
     border-radius: 2px;
 }
 
 .legend-line {
-    width: 16px;
-    height: 3px;
-    border-radius: 1px;
+    width: 24px;
+    height: 4px;
+    border-radius: 2px;
 }
 
 .layer-name {
