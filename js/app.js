@@ -239,6 +239,7 @@ const App = (function() {
     function cacheElements() {
         elements.menuToggle = document.getElementById('menu-toggle');
         elements.sidebar = document.getElementById('sidebar');
+        elements.sidebarClose = document.getElementById('sidebar-close');
         elements.sidebarBackdrop = document.getElementById('sidebar-backdrop');
         elements.layersList = document.getElementById('layers-list');
         elements.locateBtn = document.getElementById('locate-btn');
@@ -271,6 +272,12 @@ const App = (function() {
         // Tap the backdrop to close the sidebar drawer
         if (elements.sidebarBackdrop) {
             elements.sidebarBackdrop.addEventListener('click', () => {
+                if (state.sidebarOpen) toggleSidebar();
+            });
+        }
+        // Close button inside the sidebar — mobile way back to the map
+        if (elements.sidebarClose) {
+            elements.sidebarClose.addEventListener('click', () => {
                 if (state.sidebarOpen) toggleSidebar();
             });
         }

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'offline-map-v3';
+const CACHE_NAME = 'offline-map-v4';
 const TILE_CACHE_NAME = 'map-tiles-v1';
 
 const STATIC_ASSETS = ['/', '/index.html', '/css/styles.css', '/js/app.js', '/js/map.js', '/js/data.js', '/manifest.json'];

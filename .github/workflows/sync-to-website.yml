@@ -1,0 +1,49 @@
+name: Sync /map-ops/ to barryswinston-website
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout map-ops
+        uses: actions/checkout@v4
+        with:
+          path: source
+
+      - name: Checkout barryswinston-website
+        uses: actions/checkout@v4
+        with:
+          repository: winston-network/barryswinston-website
+          token: ${{ secrets.WEBSITE_SYNC_TOKEN }}
+          path: target
+
+      - name: Sync web files
+        run: |
+          cd target
+          mkdir -p map-ops
+          rsync -av --delete ../source/basemap/   map-ops/basemap/ \
+            --exclude='*.pmtiles' --exclude='*.pmtiles.off'
+          rsync -av --delete ../source/css/       map-ops/css/
+          rsync -av --delete ../source/images/    map-ops/images/
+          rsync -av --delete ../source/js/        map-ops/js/
+          rsync -av --delete ../source/layers/    map-ops/layers/
+          cp ../source/index.html    map-ops/
+          cp ../source/manifest.json map-ops/
+          cp ../source/service-worker.js map-ops/ 2>/dev/null || true
+
+      - name: Commit and push if changed
+        working-directory: target
+        run: |
+          git config user.name  "map-ops-sync-bot"
+          git config user.email "actions@github.com"
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "No changes to sync"
+            exit 0
+          fi
+          git add map-ops/
+          git commit -m "Sync /map-ops/ from winston-network/map-ops @ ${GITHUB_SHA::7}"
+          git push

@@ -1094,6 +1094,30 @@ body {
     .menu-toggle { display: none; }
 }
 
+/* Sidebar close button — mobile only, top-right inside the drawer.
+ * On desktop the sidebar is always open, so this button is hidden. */
+.sidebar-close {
+    display: none;
+    position: absolute;
+    top: var(--spacing-sm);
+    right: var(--spacing-sm);
+    width: 40px;
+    height: 40px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 50%;
+    color: #e0f0ff;
+    cursor: pointer;
+    padding: 8px;
+    z-index: 10;
+    transition: all var(--transition-fast);
+}
+.sidebar-close:hover { background: rgba(255, 255, 255, 0.15); }
+.sidebar-close svg { width: 100%; height: 100%; display: block; }
+@media (max-width: 1023px) {
+    .sidebar-close { display: block; }
+}
+
 /* Floating hamburger — top-left of the map, mobile only.
  * Reuses .control-btn styling but sits opposite the other controls. */
 .menu-toggle-floating {
