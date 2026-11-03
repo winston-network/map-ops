@@ -189,6 +189,22 @@ export const mapHtml = `
     }
   };
 
+    // Mapbox token for online-fallback basemap tiles (same pk.* token as the web).
+    // Falls back here for z<10 or when a local MBTiles tile is missing — so terrain
+    // drape works everywhere in 3D, and 2D stays offline-first for z10–15.
+    const MAPBOX_TOKEN = 'pk.eyJ1IjoiYmFycnlzbXMiLCJhIjoiY21wZWlhOXk5MDFnNzJzcHMxMmhocGVnaSJ9.m9nZfXuuieksYQ5pf3qDEg';
+    function mapboxStyleFor(basemap) {
+      return basemap === 'satellite' ? 'satellite-streets-v12' : 'outdoors-v12';
+    }
+    async function fetchMapboxTile(basemap, z, x, y) {
+      const style = mapboxStyleFor(basemap);
+      const url = 'https://api.mapbox.com/styles/v1/mapbox/' + style + '/tiles/' + z + '/' + x + '/' + y + '?access_token=' + MAPBOX_TOKEN;
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error('Mapbox ' + resp.status);
+      const buf = await resp.arrayBuffer();
+      return new Uint8Array(buf);
+    }
+
     // Register custom protocol for tile loading (MapLibre v4+ uses Promise-based API)
     function registerTileProtocol() {
       maplibregl.addProtocol('rntile', async (params) => {
@@ -200,17 +216,33 @@ export const mapHtml = `
         const x = parseInt(parts[2]);
         const y = parseInt(parts[3]);
 
-        // For zooms below available range, return transparent tile
+        // Below our MBTiles range, go straight to Mapbox online so terrain drape works.
         if (z < 10) {
-          const empty = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVQI12NgAAIABQABNjN9GQAAAABJRUSErkJggg=='), c => c.charCodeAt(0));
-          return { data: empty };
+          try {
+            const data = await fetchMapboxTile(basemap, z, x, y);
+            return { data };
+          } catch (e) {
+            // Offline / Mapbox unreachable — return transparent so MapLibre doesn't retry forever
+            const empty = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVQI12NgAAIABQABNjN9GQAAAABJRUSErkJggg=='), c => c.charCodeAt(0));
+            return { data: empty };
+          }
         }
 
+        // Local MBTiles range — try local first, fall back to Mapbox online if missing
         try {
           const data = await requestTile(basemap, z, x, y);
-          return { data: data };
+          if (data && data.length > 0) return { data };
+          // No local tile — fall back online
+          const online = await fetchMapboxTile(basemap, z, x, y);
+          return { data: online };
         } catch (err) {
-          throw err;
+          // Local errored — try Mapbox before giving up
+          try {
+            const online = await fetchMapboxTile(basemap, z, x, y);
+            return { data: online };
+          } catch (e2) {
+            throw err;
+          }
         }
       });
       log('Custom tile protocol registered');

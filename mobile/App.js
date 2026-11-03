@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, View, Text, TouchableOpacity, Image, Animated, Dimensions, Platform, Linking } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Image, Animated, Dimensions, Platform, Linking, ScrollView } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useState, useEffect, useRef } from 'react';
 import * as Location from 'expo-location';
@@ -420,7 +420,12 @@ export default function App() {
       </View>
 
       {/* Toggle Bar */}
-      <View style={styles.toggleBar}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.toggleBarScroll}
+        contentContainerStyle={styles.toggleBar}
+      >
         {/* Basemap Toggle */}
         <View style={styles.basemapToggle}>
           <TouchableOpacity
@@ -484,7 +489,7 @@ export default function App() {
         >
           <Text style={styles.avyIcon}>Avy!</Text>
         </TouchableOpacity>
-      </View>
+      </ScrollView>
 
       {/* Loading Screen with Snow Animation */}
       {(!isReady || !tileBridgeReady) && (
@@ -756,9 +761,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontStyle: 'italic',
   },
+  toggleBarScroll: {
+    flexGrow: 0,
+    backgroundColor: '#252542',
+  },
   toggleBar: {
     flexDirection: 'row',
-    backgroundColor: '#252542',
     paddingVertical: 8,
     paddingHorizontal: 12,
     gap: 6,
