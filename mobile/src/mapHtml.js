@@ -485,10 +485,27 @@ export const mapHtml = `
       } else {
         map.addSource('avy-paths', { type: 'geojson', data: avyPathsData });
 
+        // Hide features with all stat fields null, except for 9 named Provo-area
+        // paths that lack stats but should still render. Matches web (js/app.js).
+        const polygonFilter = ['any',
+          ['!=', ['get', 'starting_1'], null],
+          ['!=', ['get', 'starting_z'], null],
+          ['!=', ['get', 'vertical_f'], null],
+          ['!=', ['get', 'distance_t'], null],
+          ['!=', ['get', 'size_of_sl'], null],
+          ['!=', ['get', 'return_int'], null],
+          ['in', ['get', 'name'], ['literal', [
+            'ACORN', 'ALLDRED DRAW', 'BRIDAL VEIL', 'CASCADE CHUTES',
+            'COUNTY LINE', 'DAVIS CANYON', 'DEER CREEK CUT',
+            'LOWER DEER CREEK', 'UPPER DEER CREEK'
+          ]]]
+        ];
+
         map.addLayer({
           id: 'avy-paths-fill',
           type: 'fill',
           source: 'avy-paths',
+          filter: polygonFilter,
           paint: {
             'fill-color': '#f472b6',
             'fill-opacity': 0.3
@@ -499,6 +516,7 @@ export const mapHtml = `
           id: 'avy-paths-line',
           type: 'line',
           source: 'avy-paths',
+          filter: polygonFilter,
           paint: {
             'line-color': '#f472b6',
             'line-width': 2,
@@ -564,31 +582,60 @@ export const mapHtml = `
 
       map.addSource('staging', { type: 'geojson', data: stagingData });
 
+      // Zoom-interpolated circle: smaller when zoomed out, bigger when zoomed in.
+      // Mirrors web (js/map.js) so mobile and web look identical.
+      const baseRadius = 14;
+      const strokeWidth = 2;
       map.addLayer({
         id: 'staging-layer',
         type: 'circle',
         source: 'staging',
         paint: {
-          'circle-radius': 14,
           'circle-color': '#ff6600',
-          'circle-stroke-width': 2,
-          'circle-stroke-color': '#000000'
+          'circle-radius': [
+            'interpolate', ['linear'], ['zoom'],
+            8,  Math.max(3, baseRadius * 0.35),
+            12, Math.max(5, baseRadius * 0.55),
+            14, baseRadius,
+            17, baseRadius * 1.25
+          ],
+          'circle-stroke-color': '#000000',
+          'circle-stroke-width': [
+            'interpolate', ['linear'], ['zoom'],
+            8,  1,
+            14, strokeWidth,
+            17, strokeWidth + 0.5
+          ]
         }
       });
 
-      // Text label - extract number from "Staging Area 10.1" -> show "10.1"
+      // Label — only shows at zoom ≥ 13, fades in over a one-zoom window
+      // so the pop-in isn't jarring.
+      const labelMinZoom = 13;
+      const baseLabelSize = 11;
       map.addLayer({
         id: 'staging-labels',
         type: 'symbol',
         source: 'staging',
+        minzoom: labelMinZoom,
         layout: {
           'text-field': ['get', 'mile_marker'],
-          'text-size': 11,
+          'text-size': [
+            'interpolate', ['linear'], ['zoom'],
+            labelMinZoom,     baseLabelSize * 0.85,
+            labelMinZoom + 1, baseLabelSize,
+            labelMinZoom + 4, baseLabelSize * 1.25
+          ],
           'text-font': ['Open Sans Bold'],
           'text-allow-overlap': true
         },
         paint: {
-          'text-color': '#000000'
+          'text-color': '#000000',
+          'text-opacity': [
+            'interpolate', ['linear'], ['zoom'],
+            labelMinZoom,       0,
+            labelMinZoom + 0.5, 1
+          ]
         }
       });
 
