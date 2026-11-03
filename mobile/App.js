@@ -143,6 +143,7 @@ export default function App() {
   const [showGates, setShowGates] = useState(true);
   const [showStaging, setShowStaging] = useState(true);
   const [currentBasemap, setCurrentBasemap] = useState('topo');
+  const [viewMode, setViewMode] = useState('2d');
 
   // App state
   const [isReady, setIsReady] = useState(false);
@@ -347,6 +348,13 @@ export default function App() {
     }
   }, [currentBasemap, mapReady]);
 
+  // Update WebView when view mode (2D/3D) changes
+  useEffect(() => {
+    if (mapReady) {
+      sendToWebView({ type: 'setViewMode', mode: viewMode });
+    }
+  }, [viewMode, mapReady]);
+
   // Location tracking
   useEffect(() => {
     let locationSubscription;
@@ -426,6 +434,22 @@ export default function App() {
             onPress={() => setCurrentBasemap('satellite')}
           >
             <Text style={styles.basemapText}>Satellite</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* 2D / 3D Toggle */}
+        <View style={styles.basemapToggle}>
+          <TouchableOpacity
+            style={[styles.basemapBtn, viewMode === '2d' && styles.basemapBtnActive]}
+            onPress={() => setViewMode('2d')}
+          >
+            <Text style={styles.basemapText}>2D</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.basemapBtn, viewMode === '3d' && styles.basemapBtnActive]}
+            onPress={() => setViewMode('3d')}
+          >
+            <Text style={styles.basemapText}>3D</Text>
           </TouchableOpacity>
         </View>
 

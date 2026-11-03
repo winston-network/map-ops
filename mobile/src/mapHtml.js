@@ -66,6 +66,19 @@ export const mapHtml = `
     let showStaging = true;
     let map = null;
     let tileBridgeReady = false;
+    let viewMode = '2d';
+
+    // Terrain config — AWS Terrarium S3, online only. Graceful fallback when
+    // offline: setTerrain still succeeds, tiles fail silently, camera stays
+    // pitched but geometry is flat. No crash.
+    const TERRAIN = {
+      tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
+      encoding: 'terrarium',
+      tileSize: 256,
+      maxzoom: 14,
+      exaggeration: 0.9,
+      attribution: 'Terrain © Mapzen / AWS Open Data'
+    };
 
     // Tile request tracking
     let requestId = 0;
@@ -653,7 +666,14 @@ export const mapHtml = `
       const waitForStyle = () => {
         if (map.isStyleLoaded()) {
           log('Style ready for ' + basemap);
-          setTimeout(reAddLayers, 100);
+          setTimeout(() => {
+            reAddLayers();
+            // setStyle wipes sources incl. terrain — reapply if we're in 3D
+            if (viewMode === '3d') {
+              setupTerrainSource();
+              try { map.setTerrain({ source: 'terrain-dem', exaggeration: TERRAIN.exaggeration }); } catch(e) { log('setTerrain re-apply failed: ' + e.message); }
+            }
+          }, 100);
         } else {
           log('Waiting for style...');
           setTimeout(waitForStyle, 100);
@@ -661,6 +681,39 @@ export const mapHtml = `
       };
       setTimeout(waitForStyle, 50);
     }
+
+    // Terrain-DEM raster source (online AWS Terrarium). Safe to call multiple times.
+    function setupTerrainSource() {
+      if (!map) return;
+      if (map.getSource('terrain-dem')) return;
+      map.addSource('terrain-dem', {
+        type: 'raster-dem',
+        tiles: TERRAIN.tiles,
+        tileSize: TERRAIN.tileSize,
+        maxzoom: TERRAIN.maxzoom,
+        encoding: TERRAIN.encoding,
+        attribution: TERRAIN.attribution
+      });
+    }
+
+    // 2D ↔ 3D: tilts camera + attaches terrain source. Offline users just get
+    // the tilt without geometry — no crash, no error.
+    function setViewMode(mode) {
+      if (!map || (mode !== '2d' && mode !== '3d')) return;
+      viewMode = mode;
+      log('setViewMode: ' + mode);
+      if (mode === '3d') {
+        setupTerrainSource();
+        try {
+          map.setTerrain({ source: 'terrain-dem', exaggeration: TERRAIN.exaggeration });
+        } catch (e) { log('setTerrain failed: ' + e.message); }
+        map.easeTo({ pitch: 60, duration: 600 });
+      } else {
+        try { map.setTerrain(null); } catch (e) {}
+        map.easeTo({ pitch: 0, bearing: 0, duration: 600 });
+      }
+    }
+    window.setViewMode = setViewMode;
 
     // User location marker with directional arrow
     let userMarker = null;
@@ -793,6 +846,10 @@ export const mapHtml = `
 
           case 'setBasemap':
             switchBasemap(data.basemap);
+            break;
+
+          case 'setViewMode':
+            setViewMode(data.mode);
             break;
 
           case 'updateLocation':
