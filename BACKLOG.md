@@ -1,45 +1,51 @@
 # MAP-OPS Backlog
 
-## Offline 3D terrain (DEM PMTiles)
+## 3D terrain — SHIPPED (online, with offline-fallback drape)
 
-The 2D/3D chip is live. In **3D** mode the camera tilts to 60° pitch and rotation is enabled — but the terrain stays flat unless a local DEM (digital elevation model) is bundled with the basemap.
+The 2D/3D chip is live on both **web** and **mobile** as of v2.16.0. In **3D** mode the
+camera tilts to 60° pitch, rotation is enabled, and real topography is draped
+over the basemap tiles.
 
-To make the 3D mode actually show topography for the SLC/Provo and Cottonwood Canyon area, we need a **Terrain-RGB encoded PMTiles** file dropped next to the existing basemap PMTiles and a `terrain` entry added to `basemap/basemaps.json`.
+### What's shipped
 
-### What I (the app) need from you
+- **DEM source**: AWS Open Data Terrarium S3 — free, no key, encoded in
+  `terrarium` format.
+  - URL: `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png`
+  - `tileSize: 256`, `maxzoom: 14`, `exaggeration: 0.9`
+- **Mobile basemap drape fix**: in 3D the camera tilts and MapLibre asks for
+  low-zoom horizon tiles outside the SLC/Provo MBTiles range (z<10) and any tile
+  outside the bbox. The custom `rntile://` protocol now falls back to Mapbox
+  online (`outdoors-v12` for topo, `satellite-streets-v12` for sat) so terrain
+  drape works everywhere. Local MBTiles still win for z10–15 in the SLC/Provo
+  bbox — offline-first intact for the primary coverage area.
+- **Config**: on web, the terrain source lives in `basemap/basemaps.json`
+  under a `terrain:` key. On mobile, the same values are hardcoded in
+  `mobile/src/mapHtml.js` under `const TERRAIN = {...}`. Keep both in sync when
+  tuning (`exaggeration` especially).
 
-1. **A Terrain-RGB PMTiles file** covering the same extent as the existing basemaps (SLC/Provo). Source candidates:
-   - USGS 3DEP 1-arc-second DEM (free, US-only, ~10 m resolution) — best fit for Wasatch
-   - AWS Open Data Terrain Tiles (Terrarium encoding) — easy to download a tile pyramid for the bbox
-2. **Encoding** specified — either `terrarium` (AWS) or `mapbox` (Mapbox Terrain-RGB). The app defaults to `terrarium`.
-3. **Zoom range** — terrain typically only needs `maxzoom: 12–14`; the renderer upsamples between DEM tiles and basemap tiles.
-4. **File placed at** `basemap/<your-filename>.pmtiles`.
-5. **Add an entry to `basemap/basemaps.json`** like:
-   ```json
-   {
-     "basemaps": [ ... existing entries ... ],
-     "terrain": {
-       "file": "Terrain_SLC_Provo_terrarium.pmtiles",
-       "encoding": "terrarium",
-       "tileSize": 512,
-       "maxzoom": 14,
-       "exaggeration": 1.4
-     }
-   }
-   ```
+### Offline-mode behavior
 
-### Suggested pipeline (one-time, offline)
+- **In the SLC/Provo coverage bbox at z10–15, offline**: basemap renders fine
+  (local MBTiles). 3D tilts but the DEM source is unreachable → ground is
+  flat under the tilted camera, no crash.
+- **Outside the bbox or z<10, offline**: tiles come up transparent → white in
+  3D. Fine as a graceful degradation; the user has clearly left the coverage
+  area intentionally.
 
-```bash
-# 1. Download a Terrarium tile pyramid for the bbox (e.g. with gdal2tiles or rio-rgbify
-#    + an mbtiles output), or generate locally from USGS DEM with rio-rgbify.
-# 2. Convert MBTiles -> PMTiles
-pmtiles convert Terrain_SLC_Provo.mbtiles Terrain_SLC_Provo_terrarium.pmtiles
-# 3. Drop into basemap/ and update basemaps.json (see above).
-```
+### Future work (not currently planned)
 
-Until that file exists, **3D mode still works** — pitch + rotate are enabled — the ground is just flat. No errors, no console noise. Once you add the file and the JSON entry, `setTerrain` wires up automatically.
+Bundling a local Terrain-RGB PMTiles file would give offline users real 3D
+geometry inside the primary coverage area. Pipeline:
 
-### Why packaged, not online
+1. Download a Terrarium tile pyramid for the SLC/Provo bbox (e.g. `rio-rgbify`
+   from USGS DEM, or tile pulldown from AWS Terrarium).
+2. `pmtiles convert Terrain_SLC_Provo.mbtiles Terrain_SLC_Provo_terrarium.pmtiles`
+3. Drop in `basemap/` (web) + `mobile/assets/basemap/` (mobile).
+4. Point the TERRAIN config at the local PMTiles file (web uses `file:`
+   property; mobile would need a `pmtiles://` or `rndem://` custom protocol
+   analogous to the basemap one).
 
-We considered AWS Terrarium over HTTPS (free, no key) for instant 3D, but it breaks the offline-first guarantee. Map-ops is used in dead-zone canyons; everything that renders in 2D must render in 3D. So we bundle the DEM the same way we bundle basemaps.
+Deferred because: the online path already works for every realistic use case
+(the user is in a canyon with LTE/5G when they open the app, or they'll see
+flat ground in 3D offline — no worse than before 3D existed). Bundle size
+would grow by 30–80 MB.
