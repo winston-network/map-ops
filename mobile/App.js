@@ -584,9 +584,9 @@ export default function App() {
         >
           <View style={styles.popup}>
             <Text style={styles.avyReportHeader}>Please report avalanches to UDOT personnel at:</Text>
-            <Text style={styles.avyReportLabel}>BCC:</Text>
+            <Text style={styles.avyReportLabel}>Big Cottonwood Canyon:</Text>
             <Text style={styles.avyReportContact}>JB Keller - 859-912-2150</Text>
-            <Text style={styles.avyReportLabel}>LCC:</Text>
+            <Text style={styles.avyReportLabel}>Little Cottonwood Canyon:</Text>
             <Text style={styles.avyReportContact}>Laurie Delaney - 970-266-0107</Text>
             <Text style={styles.avyReportLabel}>Provo:</Text>
             <Text style={styles.avyReportContact}>Chris Covington - 801-910-2466</Text>
