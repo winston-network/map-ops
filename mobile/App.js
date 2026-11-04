@@ -434,7 +434,7 @@ export default function App() {
               style={[styles.basemapBtn, currentBasemap === 'satellite' && styles.basemapBtnActive]}
               onPress={() => setCurrentBasemap('satellite')}
             >
-              <Text style={styles.basemapText}>Satellite</Text>
+              <Text style={styles.basemapText}>Sat</Text>
             </TouchableOpacity>
           </View>
 
