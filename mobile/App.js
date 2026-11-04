@@ -467,7 +467,7 @@ export default function App() {
             style={[styles.toggleBtn, showAvyPaths && styles.toggleBtnActive]}
             onPress={() => setShowAvyPaths(!showAvyPaths)}
           >
-            <Text style={styles.toggleText}>Paths</Text>
+            <Text style={styles.toggleText}>Avy Paths</Text>
             <View style={[styles.toggleRect, { backgroundColor: '#f472b6' }]} />
           </TouchableOpacity>
 
