@@ -419,9 +419,9 @@ export default function App() {
         </View>
       </View>
 
-      {/* Toggle Bar — two rows so all chips fit without horizontal scroll */}
+      {/* Toggle Bar — two full-width rows */}
       <View style={styles.toggleBarWrap}>
-        {/* Row 1: view controls (basemap + 2D/3D) */}
+        {/* Row 1: view controls + Report Avalanche action */}
         <View style={styles.toggleRow}>
           <View style={styles.basemapToggle}>
             <TouchableOpacity
@@ -452,9 +452,16 @@ export default function App() {
               <Text style={styles.basemapText}>3D</Text>
             </TouchableOpacity>
           </View>
+
+          <TouchableOpacity
+            style={styles.reportBtn}
+            onPress={() => setShowAvyReport(true)}
+          >
+            <Text style={styles.reportBtnText}>Report Avalanche</Text>
+          </TouchableOpacity>
         </View>
 
-        {/* Row 2: layer toggles + Avy! action */}
+        {/* Row 2: layer toggles */}
         <View style={styles.toggleRow}>
           <TouchableOpacity
             style={[styles.toggleBtn, showAvyPaths && styles.toggleBtnActive]}
@@ -478,13 +485,6 @@ export default function App() {
           >
             <Text style={styles.toggleText}>Gates</Text>
             <Image source={require('./assets/icons/New_Gates.png')} style={styles.toggleIcon} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.toggleBtn, styles.toggleBtnActive]}
-            onPress={() => setShowAvyReport(true)}
-          >
-            <Text style={styles.avyIcon}>Avy!</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -769,7 +769,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 6,
     alignItems: 'center',
-    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  reportBtn: {
+    backgroundColor: '#c93434',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+  },
+  reportBtnText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.2,
   },
   basemapToggle: {
     flexDirection: 'row',
