@@ -838,10 +838,12 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   toggleCircle: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#f97316',
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#ff6600',
+    borderWidth: 2,
+    borderColor: '#000000',
     marginLeft: 4,
   },
   toggleText: {
