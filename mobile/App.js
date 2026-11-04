@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, View, Text, TouchableOpacity, Image, Animated, Dimensions, Platform, Linking, ScrollView } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Image, Animated, Dimensions, Platform, Linking } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useState, useEffect, useRef } from 'react';
 import * as Location from 'expo-location';
@@ -419,77 +419,75 @@ export default function App() {
         </View>
       </View>
 
-      {/* Toggle Bar */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.toggleBarScroll}
-        contentContainerStyle={styles.toggleBar}
-      >
-        {/* Basemap Toggle */}
-        <View style={styles.basemapToggle}>
-          <TouchableOpacity
-            style={[styles.basemapBtn, currentBasemap === 'topo' && styles.basemapBtnActive]}
-            onPress={() => setCurrentBasemap('topo')}
-          >
-            <Text style={styles.basemapText}>Topo</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.basemapBtn, currentBasemap === 'satellite' && styles.basemapBtnActive]}
-            onPress={() => setCurrentBasemap('satellite')}
-          >
-            <Text style={styles.basemapText}>Satellite</Text>
-          </TouchableOpacity>
+      {/* Toggle Bar — two rows so all chips fit without horizontal scroll */}
+      <View style={styles.toggleBarWrap}>
+        {/* Row 1: view controls (basemap + 2D/3D) */}
+        <View style={styles.toggleRow}>
+          <View style={styles.basemapToggle}>
+            <TouchableOpacity
+              style={[styles.basemapBtn, currentBasemap === 'topo' && styles.basemapBtnActive]}
+              onPress={() => setCurrentBasemap('topo')}
+            >
+              <Text style={styles.basemapText}>Topo</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.basemapBtn, currentBasemap === 'satellite' && styles.basemapBtnActive]}
+              onPress={() => setCurrentBasemap('satellite')}
+            >
+              <Text style={styles.basemapText}>Satellite</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.basemapToggle}>
+            <TouchableOpacity
+              style={[styles.basemapBtn, viewMode === '2d' && styles.basemapBtnActive]}
+              onPress={() => setViewMode('2d')}
+            >
+              <Text style={styles.basemapText}>2D</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.basemapBtn, viewMode === '3d' && styles.basemapBtnActive]}
+              onPress={() => setViewMode('3d')}
+            >
+              <Text style={styles.basemapText}>3D</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
-        {/* 2D / 3D Toggle */}
-        <View style={styles.basemapToggle}>
+        {/* Row 2: layer toggles + Avy! action */}
+        <View style={styles.toggleRow}>
           <TouchableOpacity
-            style={[styles.basemapBtn, viewMode === '2d' && styles.basemapBtnActive]}
-            onPress={() => setViewMode('2d')}
+            style={[styles.toggleBtn, showAvyPaths && styles.toggleBtnActive]}
+            onPress={() => setShowAvyPaths(!showAvyPaths)}
           >
-            <Text style={styles.basemapText}>2D</Text>
+            <Text style={styles.toggleText}>Paths</Text>
+            <View style={[styles.toggleRect, { backgroundColor: '#f472b6' }]} />
           </TouchableOpacity>
+
           <TouchableOpacity
-            style={[styles.basemapBtn, viewMode === '3d' && styles.basemapBtnActive]}
-            onPress={() => setViewMode('3d')}
+            style={[styles.toggleBtn, showStaging && styles.toggleBtnActive]}
+            onPress={() => setShowStaging(!showStaging)}
           >
-            <Text style={styles.basemapText}>3D</Text>
+            <Text style={styles.toggleText}>Staging</Text>
+            <View style={styles.toggleCircle} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.toggleBtn, showGates && styles.toggleBtnActive]}
+            onPress={() => setShowGates(!showGates)}
+          >
+            <Text style={styles.toggleText}>Gates</Text>
+            <Image source={require('./assets/icons/New_Gates.png')} style={styles.toggleIcon} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.toggleBtn, styles.toggleBtnActive]}
+            onPress={() => setShowAvyReport(true)}
+          >
+            <Text style={styles.avyIcon}>Avy!</Text>
           </TouchableOpacity>
         </View>
-
-        {/* Layer Toggles */}
-        <TouchableOpacity
-          style={[styles.toggleBtn, showAvyPaths && styles.toggleBtnActive]}
-          onPress={() => setShowAvyPaths(!showAvyPaths)}
-        >
-          <Text style={styles.toggleText}>Paths</Text>
-          <View style={[styles.toggleRect, { backgroundColor: '#f472b6' }]} />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.toggleBtn, showStaging && styles.toggleBtnActive]}
-          onPress={() => setShowStaging(!showStaging)}
-        >
-          <Text style={styles.toggleText}>Staging</Text>
-          <View style={styles.toggleCircle} />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.toggleBtn, showGates && styles.toggleBtnActive]}
-          onPress={() => setShowGates(!showGates)}
-        >
-          <Text style={styles.toggleText}>Gates</Text>
-          <Image source={require('./assets/icons/New_Gates.png')} style={styles.toggleIcon} />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.toggleBtn, styles.toggleBtnActive]}
-          onPress={() => setShowAvyReport(true)}
-        >
-          <Text style={styles.avyIcon}>Avy!</Text>
-        </TouchableOpacity>
-      </ScrollView>
+      </View>
 
       {/* Loading Screen with Snow Animation */}
       {(!isReady || !tileBridgeReady) && (
@@ -761,16 +759,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontStyle: 'italic',
   },
-  toggleBarScroll: {
-    flexGrow: 0,
+  toggleBarWrap: {
     backgroundColor: '#252542',
-  },
-  toggleBar: {
-    flexDirection: 'row',
     paddingVertical: 8,
     paddingHorizontal: 12,
+    gap: 8,
+  },
+  toggleRow: {
+    flexDirection: 'row',
     gap: 6,
     alignItems: 'center',
+    flexWrap: 'wrap',
   },
   basemapToggle: {
     flexDirection: 'row',
