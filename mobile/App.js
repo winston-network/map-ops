@@ -428,13 +428,13 @@ export default function App() {
               style={[styles.basemapBtn, currentBasemap === 'topo' && styles.basemapBtnActive]}
               onPress={() => setCurrentBasemap('topo')}
             >
-              <Text style={styles.basemapText}>Topo</Text>
+              <Text style={[styles.basemapText, currentBasemap === 'topo' && styles.basemapTextActive]}>Topo</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.basemapBtn, currentBasemap === 'satellite' && styles.basemapBtnActive]}
               onPress={() => setCurrentBasemap('satellite')}
             >
-              <Text style={styles.basemapText}>Sat</Text>
+              <Text style={[styles.basemapText, currentBasemap === 'satellite' && styles.basemapTextActive]}>Sat</Text>
             </TouchableOpacity>
           </View>
 
@@ -443,13 +443,13 @@ export default function App() {
               style={[styles.basemapBtn, viewMode === '2d' && styles.basemapBtnActive]}
               onPress={() => setViewMode('2d')}
             >
-              <Text style={styles.basemapText}>2D</Text>
+              <Text style={[styles.basemapText, viewMode === '2d' && styles.basemapTextActive]}>2D</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.basemapBtn, viewMode === '3d' && styles.basemapBtnActive]}
               onPress={() => setViewMode('3d')}
             >
-              <Text style={styles.basemapText}>3D</Text>
+              <Text style={[styles.basemapText, viewMode === '3d' && styles.basemapTextActive]}>3D</Text>
             </TouchableOpacity>
           </View>
 
@@ -801,12 +801,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   basemapBtnActive: {
-    backgroundColor: '#444466',
+    backgroundColor: '#7ec8ff',
   },
   basemapText: {
     color: '#ffffff',
     fontSize: 14,
     fontWeight: '600',
+  },
+  basemapTextActive: {
+    color: '#0d1117',
   },
   toggleBtn: {
     flex: 1,
