@@ -801,7 +801,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   basemapBtnActive: {
-    backgroundColor: '#7ec8ff',
+    backgroundColor: '#5b7fe3',
   },
   basemapText: {
     color: '#ffffff',
@@ -809,7 +809,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   basemapTextActive: {
-    color: '#0d1117',
+    color: '#ffffff',
   },
   toggleBtn: {
     flex: 1,
