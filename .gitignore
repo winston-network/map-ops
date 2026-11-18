@@ -49,6 +49,9 @@ coverage/
 *.temp
 .cache/
 
+# Local-only per-user working tool (not shared)
+release-kanban.html
+
 # Python
 __pycache__/
 *.py[cod]
